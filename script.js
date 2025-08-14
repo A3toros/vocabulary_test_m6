@@ -1,55 +1,93 @@
 document.addEventListener('DOMContentLoaded', function() {
-  // Get elements
+  // Get registration form elements
   const registrationForm = document.getElementById('registration-form');
   const registrationStatus = document.getElementById('registration-status');
   const registrationSection = document.getElementById('registration-section');
   const questionnaireSection = document.getElementById('questionnaire-section');
+  
+  // Get questionnaire form elements
   const questionnaireForm = document.getElementById('questionnaire-form');
   const questionnaireStatus = document.getElementById('questionnaire-status');
   
-  // Add event listener for registration form
+  // Handle registration form submission
   if (registrationForm) {
-    registrationForm.addEventListener('submit', function(event) {
+    registrationForm.addEventListener('submit', async function(event) {
       event.preventDefault();
       
       // Get form values
       const nickname = document.getElementById('nickname').value.trim();
       const number = document.getElementById('number').value.trim();
       
-      // Validate form
+      // Validate all fields are filled
       if (!nickname || !number) {
         registrationStatus.textContent = "Please fill in all fields";
         registrationStatus.className = "status error";
         return;
       }
       
-      // Show success message
-      registrationStatus.textContent = "Good luck";
-      registrationStatus.className = "status success";
+      // Disable form during submission
+      const submitButton = registrationForm.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
       
-      // Store registration data
-      const registrationData = {
-        nickname: nickname,
-        number: number
-      };
+      // Show submitting status
+      registrationStatus.textContent = "Submitting...";
+      registrationStatus.className = "status";
       
-      // Save to localStorage
-      localStorage.setItem('registrationData', JSON.stringify(registrationData));
-      
-      // Show questionnaire after a short delay
-      setTimeout(function() {
-        registrationSection.style.display = 'none';
-        questionnaireSection.style.display = 'block';
+      try {
+        console.log('Submitting registration data:', { nickname, number });
         
-        // Scroll to top of questionnaire
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 1500);
+        // Submit registration data to Netlify function
+        const response = await fetch("/.netlify/functions/submit-registration", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ 
+            nickname: nickname,
+            number: number
+          })
+        });
+        
+        console.log('Response status:', response.status);
+        
+        // Parse the JSON response
+        const result = await response.json();
+        console.log('Response data:', result);
+        
+        if (!response.ok) {
+          throw new Error(result.error || result.details || "Failed to submit registration");
+        }
+        
+        // Store registration ID for later use with questionnaire
+        localStorage.setItem('registrationId', result.id);
+        console.log('Registration ID saved:', result.id);
+        
+        // Show success message
+        registrationStatus.textContent = "Good luck";
+        registrationStatus.className = "status success";
+        
+        // Show questionnaire after a short delay
+        setTimeout(function() {
+          registrationSection.style.display = 'none';
+          questionnaireSection.style.display = 'block';
+        }, 1500);
+        
+      } catch (error) {
+        console.error("Registration error:", error);
+        
+        // Show detailed error message
+        registrationStatus.textContent = error.message || "Error submitting form. Please try again.";
+        registrationStatus.className = "status error";
+        
+        // Re-enable the submit button
+        submitButton.disabled = false;
+      }
     });
   }
   
-  // Add event listener for questionnaire form
+  // Handle questionnaire form submission
   if (questionnaireForm) {
-    questionnaireForm.addEventListener('submit', function(event) {
+    questionnaireForm.addEventListener('submit', async function(event) {
       event.preventDefault();
       
       // Check if all questions are answered
@@ -57,6 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
       let allAnswered = true;
       let firstEmptyField = null;
       
+      // Validate each question field
       for (let i = 1; i <= 10; i++) {
         const questionField = document.getElementById('question' + i);
         const answer = questionField.value.trim();
@@ -70,56 +109,103 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         } else {
           questionField.style.borderColor = '#ddd';
-          answers.push({ question: i, answer: answer });
+          answers.push({
+            question: 'Question ' + i,
+            answer: answer
+          });
         }
       }
       
+      // Show error if not all questions answered
       if (!allAnswered) {
         questionnaireStatus.textContent = "Please answer all questions";
         questionnaireStatus.className = "status error";
         
-        // Focus the first empty field
+        // Focus on first empty field
         if (firstEmptyField) {
           firstEmptyField.focus();
         }
+        
         return;
       }
       
-      // Show success message
-      questionnaireStatus.textContent = "Hope you didn't fail";
-      questionnaireStatus.className = "status success";
+      // Disable form during submission
+      const submitButton = questionnaireForm.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
       
-      // Get registration data
-      const registrationData = JSON.parse(localStorage.getItem('registrationData') || '{}');
+      // Show submitting status
+      questionnaireStatus.textContent = "Submitting...";
+      questionnaireStatus.className = "status";
       
-      // Combine data
-      const submissionData = {
-        ...registrationData,
-        answers: answers
-      };
-      
-      // Log data (in a real app, you would send this to a server)
-      console.log('Submission data:', submissionData);
-      
-      // Disable form after submission
-      const formElements = questionnaireForm.querySelectorAll('input, button');
-      formElements.forEach(el => {
-        el.disabled = true;
-      });
-      
-      // Optional: Add a reset button to start over
-      const resetButton = document.createElement('button');
-      resetButton.textContent = 'Start Over';
-      resetButton.type = 'button';
-      resetButton.style.marginTop = '20px';
-      resetButton.style.backgroundColor = '#6c757d';
-      
-      resetButton.addEventListener('click', function() {
-        localStorage.removeItem('registrationData');
-        location.reload();
-      });
-      
-      questionnaireForm.appendChild(resetButton);
+      try {
+        // Get registration ID
+        const registrationId = localStorage.getItem('registrationId');
+        
+        if (!registrationId) {
+          throw new Error("Registration information missing. Please start over.");
+        }
+        
+        console.log('Submitting questionnaire with registration ID:', registrationId);
+        console.log('Answers count:', answers.length);
+        
+        // Submit questionnaire data to Netlify function
+        const response = await fetch("/.netlify/functions/submit-questionnaire", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ 
+            registrationId: registrationId,
+            answers: answers
+          })
+        });
+        
+        console.log('Response status:', response.status);
+        
+        // Parse the JSON response
+        const result = await response.json();
+        console.log('Response data:', result);
+        
+        if (!response.ok) {
+          throw new Error(result.error || result.details || "Failed to submit questionnaire");
+        }
+        
+        // Show success message
+        questionnaireStatus.textContent = "Hope you didn't fail";
+        questionnaireStatus.className = "status success";
+        
+        // Disable all form inputs after successful submission
+        questionnaireForm.querySelectorAll('input').forEach(el => {
+          el.disabled = true;
+        });
+        
+        // Keep submit button disabled
+        submitButton.disabled = true;
+        
+      } catch (error) {
+        console.error("Questionnaire error:", error);
+        
+        // Show detailed error message
+        questionnaireStatus.textContent = error.message || "Error submitting questionnaire. Please try again.";
+        questionnaireStatus.className = "status error";
+        
+        // Re-enable the submit button
+        submitButton.disabled = false;
+      }
     });
   }
+  
+  // Check if user should be on questionnaire directly (already registered)
+  function checkPreviousRegistration() {
+    const registrationId = localStorage.getItem('registrationId');
+    
+    if (registrationId && registrationSection && questionnaireSection) {
+      console.log('Found previous registration ID:', registrationId);
+      registrationSection.style.display = 'none';
+      questionnaireSection.style.display = 'block';
+    }
+  }
+  
+  // Uncomment this if you want users to continue where they left off
+  // checkPreviousRegistration();
 });
