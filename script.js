@@ -100,6 +100,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Store registration ID
         localStorage.setItem('registrationId', result.id);
+        // Also store nickname for use in the submission complete message
+        localStorage.setItem('userNickname', nickname);
         
         // Show success message
         showStatus(registrationStatus, "Good luck", "success");
@@ -231,27 +233,49 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log('Questionnaire submission successful:', result);
         
-        // Show success message
-        showStatus(questionnaireStatus, "Hope you didn't fail", "success");
+        // Get the user's nickname from localStorage
+        const nickname = localStorage.getItem('userNickname') || 'User';
         
-        // Mark form as completed but keep it visible
-        questionnaireForm.classList.add('completed');
+        // Create a completion container to replace the form
+        const completionContainer = document.createElement('div');
+        completionContainer.className = 'completion-container';
         
-        // Keep form fields disabled but visible
-        questionnaireForm.querySelectorAll('input').forEach(el => {
-          el.disabled = true;
-          el.setAttribute('aria-readonly', 'true');
-        });
-        
-        // Change submit button appearance
-        const submitButton = questionnaireForm.querySelector('button[type="submit"]');
-        if (submitButton) {
-          submitButton.textContent = "Submitted";
-          submitButton.classList.add('submitted-button');
-        }
+        // Add the success message with the user's nickname
+        const successMessage = document.createElement('div');
+        successMessage.className = 'status success completion-message';
+        successMessage.textContent = `Hope you didn't fail, ${nickname}!`;
+        completionContainer.appendChild(successMessage);
         
         // Add restart button
-        addRestartButton();
+        const restartButton = document.createElement('button');
+        restartButton.type = 'button';
+        restartButton.textContent = 'Start a New Submission';
+        restartButton.className = 'restart-button';
+        
+        restartButton.addEventListener('click', function() {
+          // Clear localStorage
+          localStorage.removeItem('registrationId');
+          localStorage.removeItem('userNickname');
+          
+          // Reload the page
+          window.location.reload();
+        });
+        
+        completionContainer.appendChild(restartButton);
+        
+        // Replace the form with the completion container
+        questionnaireForm.style.opacity = '0';
+        questionnaireForm.style.transform = 'translateY(-20px)';
+        
+        setTimeout(() => {
+          // Replace the form with the completion container
+          questionnaireForm.parentNode.replaceChild(completionContainer, questionnaireForm);
+          
+          // Add animation to the completion container
+          void completionContainer.offsetWidth; // Force reflow
+          completionContainer.style.opacity = '1';
+          completionContainer.style.transform = 'translateY(0)';
+        }, 300);
         
       } catch (error) {
         console.error("Questionnaire error:", error);
@@ -263,53 +287,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
-  // Add a restart button after questionnaire submission
-  function addRestartButton() {
-    // Only add the button if it doesn't already exist
-    if (!document.querySelector('.restart-button')) {
-      const restartButton = document.createElement('button');
-      restartButton.type = 'button';
-      restartButton.textContent = 'Start a New Submission';
-      restartButton.className = 'restart-button';
-      
-      restartButton.addEventListener('click', function() {
-        // Clear localStorage
-        localStorage.removeItem('registrationId');
-        
-        // Show restart message
-        showStatus(questionnaireStatus, "Starting new submission...");
-        
-        // Reload the page after a brief delay
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
-      });
-      
-      // Add the restart button after the status message
-      questionnaireStatus.parentNode.insertBefore(restartButton, questionnaireStatus.nextSibling);
-    }
-  }
-  
-  // Check if user is returning with a previous registration
-  function checkPreviousRegistration() {
-    const registrationId = localStorage.getItem('registrationId');
-    
-    if (registrationId && registrationSection && questionnaireSection) {
-      console.log('Found previous registration ID:', registrationId);
-      
-      // Hide registration form and show questionnaire
-      registrationSection.style.display = 'none';
-      questionnaireSection.style.display = 'block';
-      questionnaireSection.style.opacity = '1';
-      questionnaireSection.style.transform = 'translateY(0)';
-      
-      // Show resume message
-      showStatus(questionnaireStatus, "You're continuing your previous submission", "info");
-    }
-  }
-  
-  // Add CSS classes for styling form field errors
-  function addErrorStyles() {
+  // Initialize page
+  function init() {
+    // Add dynamic styles
     if (!document.getElementById('dynamic-styles')) {
       const style = document.createElement('style');
       style.id = 'dynamic-styles';
@@ -329,7 +309,7 @@ document.addEventListener('DOMContentLoaded', function() {
           from { opacity: 1; transform: translateY(0); }
           to { opacity: 0; transform: translateY(-20px); }
         }
-        #questionnaire-section, #registration-section {
+        #questionnaire-section, #registration-section, .completion-container {
           transition: opacity 0.3s ease-out, transform 0.3s ease-out;
         }
         .status.info {
@@ -337,19 +317,21 @@ document.addEventListener('DOMContentLoaded', function() {
           color: #055160;
           border-left: 4px solid #0dcaf0;
         }
-        .submitted-button {
-          background-color: #6c757d !important;
+        .completion-container {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        .completion-message {
+          font-size: 1.25rem;
+          padding: 20px;
+          margin: 30px 0;
+          text-align: center;
         }
       `;
       document.head.appendChild(style);
     }
-  }
-  
-  // Initialize page
-  function init() {
-    addErrorStyles();
     
-    // Uncomment the line below if you want returning users to continue where they left off
+    // Check for previous registration (uncomment if needed)
     // checkPreviousRegistration();
   }
   

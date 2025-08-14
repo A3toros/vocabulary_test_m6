@@ -416,3 +416,42 @@ textarea:focus {
     color: #155724;
   }
 }
+
+/* Completion screen styles */
+.completion-container {
+  text-align: center;
+  padding: 30px 20px;
+  margin: 20px 0;
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.completion-message {
+  font-size: 1.25rem !important;
+  padding: 25px !important;
+  margin: 30px 0 !important;
+  background-color: var(--success-light);
+  color: var(--success-dark);
+  border-radius: var(--border-radius);
+  border-left: 5px solid var(--success-color);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.restart-button {
+  margin-top: 25px;
+  background-color: var(--success-color);
+  transition: all 0.3s ease;
+}
+
+.restart-button:hover {
+  background-color: var(--success-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Mobile optimization for completion screen */
+@media screen and (max-width: 576px) {
+  .completion-message {
+    font-size: 1.1rem !important;
+    padding: 20px !important;
+  }
+}

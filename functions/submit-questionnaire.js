@@ -53,9 +53,9 @@ exports.handler = async function(event, context) {
   try {
     await client.query('BEGIN');
     
-    // Verify that the registration exists
+    // Get the nickname from the registrations table
     const regCheck = await client.query(
-      "SELECT id FROM registrations WHERE id = $1",
+      "SELECT id, nickname FROM registrations WHERE id = $1",
       [registrationId]
     );
     
@@ -63,11 +63,13 @@ exports.handler = async function(event, context) {
       throw new Error("Registration not found");
     }
     
-    // Insert each answer
+    const nickname = regCheck.rows[0].nickname;
+    
+    // Insert each answer with the nickname
     for (const answer of answers) {
       await client.query(
-        "INSERT INTO answers (registration_id, question, answer) VALUES ($1, $2, $3)",
-        [registrationId, answer.question, answer.answer]
+        "INSERT INTO answers (registration_id, question, answer, nickname) VALUES ($1, $2, $3, $4)",
+        [registrationId, answer.question, answer.answer, nickname]
       );
     }
     
