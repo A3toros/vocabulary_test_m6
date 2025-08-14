@@ -1,0 +1,15 @@
+{
+  "name": "form-submission-website",
+  "version": "1.0.0",
+  "description": "A website with registration and questionnaire forms using Neon and Netlify",
+  "main": "index.html",
+  "scripts": {
+    "dev": "netlify dev"
+  },
+  "dependencies": {
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.10.1"
+  }
+}
