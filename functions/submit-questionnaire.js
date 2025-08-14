@@ -29,7 +29,7 @@ exports.handler = async function(event, context) {
   }
 
   // Validate required fields
-  const { registrationId, answers } = data;
+  const { registrationId, answers, score } = data;
   if (!registrationId || !answers || !Array.isArray(answers) || answers.length === 0) {
     return { 
       statusCode: 400, 
@@ -65,6 +65,12 @@ exports.handler = async function(event, context) {
     
     const nickname = regCheck.rows[0].nickname;
     
+    // Save the score to the registrations table
+    await client.query(
+      "UPDATE registrations SET score = $1 WHERE id = $2",
+      [score, registrationId]
+    );
+    
     // Insert each answer with the nickname
     for (const answer of answers) {
       await client.query(
@@ -79,7 +85,8 @@ exports.handler = async function(event, context) {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        message: "Questionnaire submitted successfully"
+        message: "Questionnaire submitted successfully",
+        score: score
       })
     };
   } catch (error) {

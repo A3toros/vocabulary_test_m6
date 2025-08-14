@@ -10,6 +10,21 @@ document.addEventListener('DOMContentLoaded', function() {
   // Track submission state
   let isSubmitting = false;
   
+  // Correct answers for each question (multiple possible answers per question)
+  // You can fill these in with your own correct answers
+  const correctAnswers = {
+    'question1': ['RAM', 'ram', 'Ram', 'Random Access Memory'], // Add correct answers for question 1
+    'question2': ['Broadband', 'broadband', 'broadband internet', 'Broadband Internet'], // Add correct answers for question 2
+    'question3': ['database', 'Database'], // Add correct answers for question 3
+    'question4': ['Spreadsheet', 'spreadsheet', 'spread sheet', 'Spread sheet', 'Spread Sheet'], // Add correct answers for question 4
+    'question5': ['Technical Support', 'technical support', 'Technical support', 'IT support', 'IT Support', 'it suppport'], // Add correct answers for question 5
+    'question6': ['Server', 'server', 'Remote server', 'remote server'], // Add correct answers for question 6
+    'question7': ['Software', 'software'], // Add correct answers for question 7
+    'question8': ['Processor', 'processor', 'CPU', 'cpu'], // Add correct answers for question 8
+    'question9': ['Web Browser', 'web browser', 'Browser', 'browser', 'Web browser', 'Web-browser', 'web-browser'], // Add correct answers for question 9
+    'question10': ['Web designer', 'web desiger', 'Web Designer', 'Web-Designer', 'web-designer', 'Web-designer', 'Web Designer'] // Add correct answers for question 10
+  };
+  
   // Utility functions
   function showStatus(element, message, type) {
     element.textContent = message;
@@ -53,6 +68,35 @@ document.addEventListener('DOMContentLoaded', function() {
       // Re-throw network or parsing errors
       throw error;
     }
+  }
+  
+  // Check if answer is correct (case-insensitive, trimmed comparison)
+  function isAnswerCorrect(questionId, userAnswer) {
+    const possibleAnswers = correctAnswers[questionId] || [];
+    
+    // If no correct answers are defined, consider it incorrect
+    if (possibleAnswers.length === 0) return false;
+    
+    // Normalize the user answer (trim and lowercase)
+    const normalizedUserAnswer = userAnswer.trim().toLowerCase();
+    
+    // Check if the normalized user answer matches any of the possible correct answers
+    return possibleAnswers.some(correctAnswer => 
+      normalizedUserAnswer === correctAnswer.trim().toLowerCase()
+    );
+  }
+  
+  // Calculate score from user answers
+  function calculateScore(answers) {
+    let score = 0;
+    
+    for (const questionId in answers) {
+      if (isAnswerCorrect(questionId, answers[questionId])) {
+        score++;
+      }
+    }
+    
+    return score;
   }
   
   // Handle registration form submission
@@ -171,13 +215,15 @@ document.addEventListener('DOMContentLoaded', function() {
       if (isSubmitting) return;
       
       // Check if all questions are answered
-      const answers = [];
+      const answers = {};
+      const answersList = [];
       let allAnswered = true;
       let firstEmptyField = null;
       
       // Validate each question field
       for (let i = 1; i <= 10; i++) {
-        const questionField = document.getElementById(`question${i}`);
+        const questionId = `question${i}`;
+        const questionField = document.getElementById(questionId);
         if (!questionField) continue;
         
         const answer = questionField.value.trim();
@@ -191,7 +237,9 @@ document.addEventListener('DOMContentLoaded', function() {
             firstEmptyField = questionField;
           }
         } else {
-          answers.push({
+          // Store answer both in object (for score calculation) and list (for API)
+          answers[questionId] = answer;
+          answersList.push({
             question: `Question ${i}`,
             answer: answer
           });
@@ -223,12 +271,17 @@ document.addEventListener('DOMContentLoaded', function() {
           throw new Error("Registration information missing. Please start over.");
         }
         
-        console.log('Submitting questionnaire:', { registrationId, answerCount: answers.length });
+        console.log('Submitting questionnaire:', { registrationId, answerCount: answersList.length });
         
-        // Submit questionnaire data
+        // Calculate the score
+        const score = calculateScore(answers);
+        console.log('Score calculated:', score);
+        
+        // Submit questionnaire data with score
         const result = await sendRequest("/.netlify/functions/submit-questionnaire", { 
           registrationId: registrationId,
-          answers: answers
+          answers: answersList,
+          score: score
         });
         
         console.log('Questionnaire submission successful:', result);
@@ -240,11 +293,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const completionContainer = document.createElement('div');
         completionContainer.className = 'completion-container';
         
-        // Add the success message with the user's nickname
-        const successMessage = document.createElement('div');
-        successMessage.className = 'status success completion-message';
-        successMessage.textContent = `Hope you didn't fail, ${nickname}!`;
-        completionContainer.appendChild(successMessage);
+        // Add the score message with the user's nickname
+        const scoreMessage = document.createElement('div');
+        const scoreClass = score >= 7 ? 'high-score' : (score >= 4 ? 'medium-score' : 'low-score');
+        scoreMessage.className = `status score-message ${scoreClass}`;
+        scoreMessage.innerHTML = `
+          <div class="score-title">Quiz Results</div>
+          <div class="score-value">${score} out of 10</div>
+          <div class="score-name">${nickname}</div>
+        `;
+        completionContainer.appendChild(scoreMessage);
         
         // Replace the form with the completion container
         questionnaireForm.style.opacity = '0';
@@ -304,11 +362,40 @@ document.addEventListener('DOMContentLoaded', function() {
           opacity: 0;
           transform: translateY(20px);
         }
-        .completion-message {
-          font-size: 1.25rem;
-          padding: 20px;
+        .score-message {
+          padding: 25px;
           margin: 0;
           text-align: center;
+          border-radius: 8px;
+        }
+        .score-title {
+          font-size: 1.5rem;
+          margin-bottom: 15px;
+          font-weight: bold;
+        }
+        .score-value {
+          font-size: 2.5rem;
+          margin-bottom: 10px;
+          font-weight: bold;
+        }
+        .score-name {
+          font-size: 1.1rem;
+          font-style: italic;
+        }
+        .high-score {
+          background-color: #d4edda;
+          color: #155724;
+          border: 2px solid #28a745;
+        }
+        .medium-score {
+          background-color: #fff3cd;
+          color: #856404;
+          border: 2px solid #ffc107;
+        }
+        .low-score {
+          background-color: #f8d7da;
+          color: #721c24;
+          border: 2px solid #dc3545;
         }
       `;
       document.head.appendChild(style);
