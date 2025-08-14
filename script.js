@@ -246,23 +246,6 @@ document.addEventListener('DOMContentLoaded', function() {
         successMessage.textContent = `Hope you didn't fail, ${nickname}!`;
         completionContainer.appendChild(successMessage);
         
-        // Add restart button
-        const restartButton = document.createElement('button');
-        restartButton.type = 'button';
-        restartButton.textContent = 'Start a New Submission';
-        restartButton.className = 'restart-button';
-        
-        restartButton.addEventListener('click', function() {
-          // Clear localStorage
-          localStorage.removeItem('registrationId');
-          localStorage.removeItem('userNickname');
-          
-          // Reload the page
-          window.location.reload();
-        });
-        
-        completionContainer.appendChild(restartButton);
-        
         // Replace the form with the completion container
         questionnaireForm.style.opacity = '0';
         questionnaireForm.style.transform = 'translateY(-20px)';
@@ -324,15 +307,12 @@ document.addEventListener('DOMContentLoaded', function() {
         .completion-message {
           font-size: 1.25rem;
           padding: 20px;
-          margin: 30px 0;
+          margin: 0;
           text-align: center;
         }
       `;
       document.head.appendChild(style);
     }
-    
-    // Check for previous registration (uncomment if needed)
-    // checkPreviousRegistration();
   }
   
   // Run initialization
