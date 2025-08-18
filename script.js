@@ -408,6 +408,8 @@ document.addEventListener('DOMContentLoaded', function() {
   
 // ... (existing code remains the same)
 
+// ... (existing code remains the same)
+
   // New code starts here
   let isSubmitting = false;
   const questionnaireForm = document.getElementById('questionnaire-form');
@@ -457,4 +459,10 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  // Add event listener to registration form to prevent default submission
+  registrationForm.addEventListener('submit', function(event) {
+    event.preventDefault();
+    submitForm();
+  });
 });
