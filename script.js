@@ -6,17 +6,12 @@ document.addEventListener('DOMContentLoaded', function() {
   const questionnaireSection = document.getElementById('questionnaire-section');
   const questionnaireForm = document.getElementById('questionnaire-form');
   const questionnaireStatus = document.getElementById('questionnaire-status');
+  const timerElement = document.getElementById('timer');
 
   // Track submission state
   let isSubmitting = false;
-  let countdownInterval = null;
-
-  // Timer display
-  let timerDisplay = document.createElement('div');
-  timerDisplay.id = 'timer-display';
-  timerDisplay.style.fontSize = '1.2rem';
-  timerDisplay.style.fontWeight = 'bold';
-  timerDisplay.style.marginTop = '10px';
+  let countdownInterval;
+  let visibilityTimeout;
 
   // Correct answers
   const correctAnswers = {
@@ -37,9 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
     element.textContent = message;
     element.className = `status ${type || ''}`;
     if (type === 'error') {
-      setTimeout(() => {
-        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 100);
+      setTimeout(() => { element.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
     }
   }
 
@@ -51,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
       const result = await response.json();
@@ -60,50 +53,92 @@ document.addEventListener('DOMContentLoaded', function() {
         throw new Error(errorMessage);
       }
       return result;
-    } catch (error) {
-      throw error;
-    }
+    } catch (error) { throw error; }
   }
 
-  function isAnswerCorrect(qId, userAnswer) {
-    const possibleAnswers = correctAnswers[qId] || [];
-    const normAnswer = userAnswer.trim().toLowerCase();
-    return possibleAnswers.some(ans => normAnswer === ans.trim().toLowerCase());
+  function isAnswerCorrect(questionId, userAnswer) {
+    const possibleAnswers = correctAnswers[questionId] || [];
+    const normalizedUserAnswer = userAnswer.trim().toLowerCase();
+    return possibleAnswers.some(ans => normalizedUserAnswer === ans.trim().toLowerCase());
   }
 
   function calculateScore(answers) {
     let score = 0;
-    for (const qId in answers) {
-      if (isAnswerCorrect(qId, answers[qId])) score++;
+    for (const q in answers) {
+      if (isAnswerCorrect(q, answers[q])) score++;
     }
     return score;
   }
 
-  // Countdown timer
-  function startCountdown(duration = 10 * 60) {
-    let timeLeft = duration;
-    timerDisplay.textContent = formatTime(timeLeft);
-    countdownInterval = setInterval(() => {
-      timeLeft--;
-      timerDisplay.textContent = formatTime(timeLeft);
-      if (timeLeft <= 0) {
-        clearInterval(countdownInterval);
-        submitQuestionnaire(true); // Force submit when time runs out
-      }
-    }, 1000);
+  function gatherAnswers() {
+    const answers = {};
+    const answersList = [];
+    for (let i = 1; i <= 10; i++) {
+      const field = document.getElementById(`question${i}`);
+      const answer = field ? field.value.trim() : '';
+      answers[`question${i}`] = answer || "FAILED";
+      answersList.push({ question: `Question ${i}`, answer: answer || "FAILED" });
+    }
+    return { answers, answersList };
   }
 
-  function formatTime(sec) {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+  async function autoSubmitQuestionnaire() {
+    if (isSubmitting) return;
+    isSubmitting = true;
+    disableForm(questionnaireForm, true);
+    showStatus(questionnaireStatus, "Auto-submitting...", "error");
+
+    try {
+      const registrationId = localStorage.getItem('registrationId');
+      if (!registrationId) throw new Error("Registration missing. Please restart.");
+
+      const { answers, answersList } = gatherAnswers();
+      const score = calculateScore(answers);
+
+      await sendRequest("/.netlify/functions/submit-questionnaire", {
+        registrationId,
+        answers: answersList,
+        score
+      });
+
+      const nickname = localStorage.getItem('userNickname') || 'User';
+      const completionContainer = document.createElement('div');
+      completionContainer.className = 'completion-container';
+      const scoreClass = score >= 7 ? 'high-score' : (score >= 4 ? 'medium-score' : 'low-score');
+
+      completionContainer.innerHTML = `
+        <div class="status score-message ${scoreClass}">
+          <div class="score-title">Quiz Results</div>
+          <div class="score-value">${score} out of 10</div>
+          <div class="score-name">${nickname}</div>
+          <div class="score-failed-message">Sorry, you are not allowed to leave the page due to security reasons. Unfortunately you failed the test.</div>
+        </div>
+      `;
+
+      questionnaireForm.style.opacity = '0';
+      questionnaireForm.style.transform = 'translateY(-20px)';
+      setTimeout(() => {
+        questionnaireForm.parentNode.replaceChild(completionContainer, questionnaireForm);
+        void completionContainer.offsetWidth;
+        completionContainer.style.opacity = '1';
+        completionContainer.style.transform = 'translateY(0)';
+      }, 300);
+
+      clearInterval(countdownInterval);
+    } catch (error) {
+      console.error(error);
+      showStatus(questionnaireStatus, error.message || "Auto-submit failed", "error");
+      disableForm(questionnaireForm, false);
+      isSubmitting = false;
+    }
   }
 
-  // Handle registration
+  // Registration submission
   if (registrationForm) {
-    registrationForm.addEventListener('submit', async function(e) {
+    registrationForm.addEventListener('submit', async e => {
       e.preventDefault();
       if (isSubmitting) return;
+
       const nickname = document.getElementById('nickname').value.trim();
       const number = document.getElementById('number').value.trim();
       if (!nickname || !number) {
@@ -112,16 +147,20 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!number) document.getElementById('number').classList.add('error-field');
         return;
       }
+
       document.getElementById('nickname').classList.remove('error-field');
       document.getElementById('number').classList.remove('error-field');
+
       isSubmitting = true;
       disableForm(registrationForm, true);
       showStatus(registrationStatus, "Submitting...");
+
       try {
-        const result = await sendRequest("/.netlify/functions/submit-registration", {nickname, number});
+        const result = await sendRequest("/.netlify/functions/submit-registration", { nickname, number });
         localStorage.setItem('registrationId', result.id);
         localStorage.setItem('userNickname', nickname);
         showStatus(registrationStatus, "Good luck", "success");
+
         setTimeout(() => {
           registrationSection.style.opacity = '0';
           registrationSection.style.transform = 'translateY(-20px)';
@@ -131,129 +170,120 @@ document.addEventListener('DOMContentLoaded', function() {
             void questionnaireSection.offsetWidth;
             questionnaireSection.style.opacity = '1';
             questionnaireSection.style.transform = 'translateY(0)';
-            // Append timer
-            if (!questionnaireSection.contains(timerDisplay)) {
-              questionnaireSection.appendChild(timerDisplay);
-            }
-            startCountdown();
+            startTimer(600); // 10-minute countdown
           }, 300);
         }, 1000);
-      } catch (error) {
-        showStatus(registrationStatus, error.message || "Error submitting form.", "error");
+      } catch (err) {
+        console.error(err);
+        showStatus(registrationStatus, err.message || "Error submitting form", "error");
         disableForm(registrationForm, false);
-      } finally {
-        isSubmitting = false;
-      }
+      } finally { isSubmitting = false; }
     });
   }
 
-  // Visibilitychange detection
-  let visibilityTimer = null;
+  // Questionnaire submission
+  if (questionnaireForm) {
+    questionnaireForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (isSubmitting) return;
+
+      isSubmitting = true;
+      disableForm(questionnaireForm, true);
+      showStatus(questionnaireStatus, "Submitting...");
+
+      try {
+        const registrationId = localStorage.getItem('registrationId');
+        if (!registrationId) throw new Error("Registration missing. Please restart.");
+
+        const { answers, answersList } = gatherAnswers();
+        const score = calculateScore(answers);
+
+        await sendRequest("/.netlify/functions/submit-questionnaire", {
+          registrationId,
+          answers: answersList,
+          score
+        });
+
+        const nickname = localStorage.getItem('userNickname') || 'User';
+        const completionContainer = document.createElement('div');
+        completionContainer.className = 'completion-container';
+        const scoreClass = score >= 7 ? 'high-score' : (score >= 4 ? 'medium-score' : 'low-score');
+
+        completionContainer.innerHTML = `
+          <div class="status score-message ${scoreClass}">
+            <div class="score-title">Quiz Results</div>
+            <div class="score-value">${score} out of 10</div>
+            <div class="score-name">${nickname}</div>
+          </div>
+        `;
+
+        questionnaireForm.style.opacity = '0';
+        questionnaireForm.style.transform = 'translateY(-20px)';
+        setTimeout(() => {
+          questionnaireForm.parentNode.replaceChild(completionContainer, questionnaireForm);
+          void completionContainer.offsetWidth;
+          completionContainer.style.opacity = '1';
+          completionContainer.style.transform = 'translateY(0)';
+        }, 300);
+
+        clearInterval(countdownInterval);
+      } catch (err) {
+        console.error(err);
+        showStatus(questionnaireStatus, err.message || "Submission failed", "error");
+        disableForm(questionnaireForm, false);
+        isSubmitting = false;
+      } finally { isSubmitting = false; }
+    });
+  }
+
+  // Visibility detection
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      visibilityTimer = setTimeout(() => {
-        submitQuestionnaire(true, "Sorry, you are not allowed to leave the page due to security reasons. Unfortunately you failed the test");
-      }, 5000);
+      visibilityTimeout = setTimeout(autoSubmitQuestionnaire, 5000);
     } else {
-      clearTimeout(visibilityTimer);
+      clearTimeout(visibilityTimeout);
     }
   });
 
-  // Handle questionnaire submission
-  if (questionnaireForm) {
-    questionnaireForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      submitQuestionnaire(false);
-    });
+  // Countdown timer function
+  function startTimer(duration) {
+    let timeRemaining = duration;
+    countdownInterval = setInterval(() => {
+      const minutes = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
+      const seconds = (timeRemaining % 60).toString().padStart(2, '0');
+      if (timerElement) timerElement.textContent = `${minutes}:${seconds}`;
+      if (timeRemaining <= 0) { clearInterval(countdownInterval); autoSubmitQuestionnaire(); }
+      timeRemaining--;
+    }, 1000);
   }
 
-  async function submitQuestionnaire(forceFail = false, failMessage = null) {
-    if (isSubmitting) return;
-    isSubmitting = true;
-    disableForm(questionnaireForm, true);
-    showStatus(questionnaireStatus, "Submitting...");
-    clearInterval(countdownInterval);
-
-    // Get registration ID
-    const registrationId = localStorage.getItem('registrationId');
-    if (!registrationId) {
-      showStatus(questionnaireStatus, "Registration info missing", "error");
-      return;
-    }
-
-    const answers = {};
-    const answersList = [];
-    for (let i = 1; i <= 10; i++) {
-      const questionId = `question${i}`;
-      const field = document.getElementById(questionId);
-      const value = field ? field.value.trim() : "";
-      const finalValue = (!value || forceFail) ? "FAILED" : value;
-      answers[questionId] = finalValue;
-      answersList.push({question: `Question ${i}`, answer: finalValue});
-    }
-
-    const score = calculateScore(answers);
-
-    try {
-      await sendRequest("/.netlify/functions/submit-questionnaire", {
-        registrationId: registrationId,
-        answers: answersList,
-        score: score
-      });
-
-      // Completion display
-      const nickname = localStorage.getItem('userNickname') || 'User';
-      const completionContainer = document.createElement('div');
-      completionContainer.className = 'completion-container';
-
-      const scoreMessage = document.createElement('div');
-      const scoreClass = score >= 7 ? 'high-score' : (score >= 4 ? 'medium-score' : 'low-score');
-      scoreMessage.className = `status score-message ${scoreClass}`;
-      scoreMessage.innerHTML = `
-        <div class="score-title">${failMessage || 'Quiz Results'}</div>
-        <div class="score-value">${score} out of 10</div>
-        <div class="score-name">${nickname}</div>
-      `;
-      completionContainer.appendChild(scoreMessage);
-      questionnaireForm.style.opacity = '0';
-      questionnaireForm.style.transform = 'translateY(-20px)';
-      setTimeout(() => {
-        questionnaireForm.parentNode.replaceChild(completionContainer, questionnaireForm);
-        void completionContainer.offsetWidth;
-        completionContainer.style.opacity = '1';
-        completionContainer.style.transform = 'translateY(0)';
-      }, 300);
-    } catch (err) {
-      showStatus(questionnaireStatus, err.message || "Error submitting", "error");
-      disableForm(questionnaireForm, false);
-    } finally {
-      isSubmitting = false;
-    }
-  }
-
-  // Initialize page
-  function init() {
+  // Initialize dynamic styles for errors and Matrix timer
+  function initStyles() {
     if (!document.getElementById('dynamic-styles')) {
       const style = document.createElement('style');
       style.id = 'dynamic-styles';
       style.textContent = `
-        .error-field {border-color: #dc3545 !important; background-color: #fff8f8 !important;}
-        .error-field:focus {box-shadow:0 0 0 2px rgba(220,53,69,0.25) !important;}
-        #questionnaire-section, #registration-section, .completion-container {transition: opacity 0.3s, transform 0.3s;}
-        .status.info {background-color: #cff4fc; color: #055160; border-left:4px solid #0dcaf0;}
-        .completion-container {opacity:0; transform:translateY(20px);}
-        .score-message {padding:25px; margin:0; text-align:center; border-radius:8px;}
-        .score-title {font-size:1.5rem; margin-bottom:15px; font-weight:bold;}
-        .score-value {font-size:2.5rem; margin-bottom:10px; font-weight:bold;}
-        .score-name {font-size:1.1rem; font-style:italic;}
-        .high-score {background-color:#d4edda;color:#155724;border:2px solid #28a745;}
-        .medium-score {background-color:#fff3cd;color:#856404;border:2px solid #ffc107;}
-        .low-score {background-color:#f8d7da;color:#721c24;border:2px solid #dc3545;}
-        #timer-display {margin-top:10px;}
+        .error-field { border-color: #dc3545 !important; background-color: #fff8f8 !important; }
+        .error-field:focus { box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25) !important; }
+        #questionnaire-section, #registration-section, .completion-container {
+          transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        }
+        .matrix-timer {
+          font-family: 'Courier New', monospace;
+          font-size: 2rem;
+          color: #00ff00;
+          text-align: center;
+          margin: 10px 0 20px 0;
+          letter-spacing: 3px;
+          text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00;
+        }
+        @media(max-width: 480px) {
+          .matrix-timer { font-size: 1.5rem; letter-spacing: 2px; margin: 5px 0 15px 0; }
+        }
       `;
       document.head.appendChild(style);
     }
   }
 
-  init();
+  initStyles();
 });
