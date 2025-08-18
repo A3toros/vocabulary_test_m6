@@ -204,11 +204,11 @@ form.completed select {
 .matrix-timer {
   font-family: 'Courier New', monospace;
   font-size: 2rem;
-  color: #00ff00; /* Matrix green */
+  color: #7643a5; /* Matrix green */
   text-align: center;
   margin: 10px 0 20px 0;
   letter-spacing: 3px;
-  text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00;
+  text-shadow: 0 0 5px #3f154d, 0 0 10px #48238b;
 }
 
 /* Animations */
