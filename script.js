@@ -1,3 +1,4 @@
+<script>
 document.addEventListener('DOMContentLoaded', function() {
   // Main elements
   const registrationForm = document.getElementById('registration-form');
@@ -9,28 +10,26 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Track submission state
   let isSubmitting = false;
+  let visibilityTimeout = null;
   
-  // Correct answers for each question (multiple possible answers per question)
-  // You can fill these in with your own correct answers
+  // Correct answers
   const correctAnswers = {
-    'question1': ['RAM', 'ram', 'Ram', 'Random Access Memory'], // Add correct answers for question 1
-    'question2': ['Broadband', 'broadband', 'broadband internet', 'Broadband Internet'], // Add correct answers for question 2
-    'question3': ['database', 'Database'], // Add correct answers for question 3
-    'question4': ['Spreadsheet', 'spreadsheet', 'spread sheet', 'Spread sheet', 'Spread Sheet'], // Add correct answers for question 4
-    'question5': ['Technical Support', 'technical support', 'Technical support', 'IT support', 'IT Support', 'it suppport'], // Add correct answers for question 5
-    'question6': ['Server', 'server', 'Remote server', 'remote server'], // Add correct answers for question 6
-    'question7': ['Software', 'software'], // Add correct answers for question 7
-    'question8': ['Processor', 'processor', 'CPU', 'cpu'], // Add correct answers for question 8
-    'question9': ['Web Browser', 'web browser', 'Browser', 'browser', 'Web browser', 'Web-browser', 'web-browser'], // Add correct answers for question 9
-    'question10': ['Web designer', 'web desiger', 'Web Designer', 'Web-Designer', 'web-designer', 'Web-designer', 'Web Designer'] // Add correct answers for question 10
+    'question1': ['RAM', 'ram', 'Ram', 'Random Access Memory'],
+    'question2': ['Broadband', 'broadband', 'broadband internet', 'Broadband Internet'],
+    'question3': ['database', 'Database'],
+    'question4': ['Spreadsheet', 'spreadsheet', 'spread sheet', 'Spread sheet', 'Spread Sheet'],
+    'question5': ['Technical Support', 'technical support', 'Technical support', 'IT support', 'IT Support'],
+    'question6': ['Server', 'server', 'Remote server', 'remote server'],
+    'question7': ['Software', 'software'],
+    'question8': ['Processor', 'processor', 'CPU', 'cpu'],
+    'question9': ['Web Browser', 'web browser', 'Browser', 'browser', 'Web browser', 'Web-browser', 'web-browser'],
+    'question10': ['Web designer', 'web designer', 'Web Designer', 'Web-Designer', 'web-designer', 'Web-designer']
   };
   
   // Utility functions
   function showStatus(element, message, type) {
     element.textContent = message;
     element.className = `status ${type || ''}`;
-    
-    // Ensure the status message is visible (scroll to it if needed)
     if (type === 'error') {
       setTimeout(() => {
         element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -48,253 +47,213 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      
-      // Parse response as JSON
       const result = await response.json();
-      
-      // Handle non-2xx responses
       if (!response.ok) {
         const errorMessage = result.error || result.details || `Server responded with status ${response.status}`;
         throw new Error(errorMessage);
       }
-      
       return result;
     } catch (error) {
-      // Re-throw network or parsing errors
       throw error;
     }
   }
   
-  
-  // Check if answer is correct (case-insensitive, trimmed comparison)
   function isAnswerCorrect(questionId, userAnswer) {
     const possibleAnswers = correctAnswers[questionId] || [];
-    
-    // If no correct answers are defined, consider it incorrect
     if (possibleAnswers.length === 0) return false;
-    
-    // Normalize the user answer (trim and lowercase)
     const normalizedUserAnswer = userAnswer.trim().toLowerCase();
-    
-    // Check if the normalized user answer matches any of the possible correct answers
     return possibleAnswers.some(correctAnswer => 
       normalizedUserAnswer === correctAnswer.trim().toLowerCase()
     );
   }
   
-  // Calculate score from user answers
   function calculateScore(answers) {
     let score = 0;
-    
     for (const questionId in answers) {
       if (isAnswerCorrect(questionId, answers[questionId])) {
         score++;
       }
     }
-    
     return score;
   }
   
-  // Handle registration form submission
+  // Auto-fail logic when user leaves page
+  async function autoFailSubmission() {
+    if (isSubmitting) return;
+    isSubmitting = true;
+
+    try {
+      // Collect registration info
+      const nicknameField = document.getElementById('nickname');
+      const numberField = document.getElementById('number');
+      const nickname = nicknameField && nicknameField.value.trim() ? nicknameField.value.trim() : "FAILED";
+      const number = numberField && numberField.value.trim() ? numberField.value.trim() : "FAILED";
+
+      let registrationId = localStorage.getItem('registrationId');
+      if (!registrationId) {
+        // Register automatically if not registered yet
+        const regResult = await sendRequest("/.netlify/functions/submit-registration", { 
+          nickname, number 
+        });
+        registrationId = regResult.id;
+        localStorage.setItem('registrationId', registrationId);
+        localStorage.setItem('userNickname', nickname);
+      }
+
+      // Collect answers (fill "FAILED" where empty)
+      const answers = {};
+      const answersList = [];
+      for (let i = 1; i <= 10; i++) {
+        const questionId = `question${i}`;
+        const questionField = document.getElementById(questionId);
+        let ans = "FAILED";
+        if (questionField && questionField.value.trim()) {
+          ans = questionField.value.trim();
+        }
+        answers[questionId] = ans;
+        answersList.push({ question: `Question ${i}`, answer: ans });
+      }
+
+      // Calculate score (FAILED answers won't match)
+      const score = calculateScore(answers);
+
+      // Submit questionnaire
+      await sendRequest("/.netlify/functions/submit-questionnaire", { 
+        registrationId,
+        answers: answersList,
+        score
+      });
+
+      // Replace page content with failure message
+      const failContainer = document.createElement('div');
+      failContainer.className = 'completion-container';
+      failContainer.innerHTML = `
+        <div class="status error" style="padding:20px; text-align:center; font-size:1.2rem;">
+          Sorry, you are not allowed to leave the page due to security reasons.<br>
+          Unfortunately you failed the test.
+        </div>
+      `;
+      document.body.innerHTML = "";
+      document.body.appendChild(failContainer);
+
+    } catch (error) {
+      console.error("Auto-fail submission error:", error);
+    } finally {
+      isSubmitting = false;
+    }
+  }
+
+  // Visibility detection
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      visibilityTimeout = setTimeout(() => {
+        autoFailSubmission();
+      }, 5000); // 5 seconds
+    } else {
+      clearTimeout(visibilityTimeout);
+    }
+  });
+  
+  // === Registration handling ===
   if (registrationForm) {
     registrationForm.addEventListener('submit', async function(event) {
       event.preventDefault();
-      
-      // Prevent double submission
       if (isSubmitting) return;
-      
-      // Get form values
       const nickname = document.getElementById('nickname').value.trim();
       const number = document.getElementById('number').value.trim();
-      
-      // Validate all fields are filled
       if (!nickname || !number) {
         showStatus(registrationStatus, "Please fill in all fields", "error");
-        
-        // Highlight empty fields
         if (!nickname) document.getElementById('nickname').classList.add('error-field');
         if (!number) document.getElementById('number').classList.add('error-field');
-        
         return;
       }
-      
-      // Clear any previous validation styling
       document.getElementById('nickname').classList.remove('error-field');
       document.getElementById('number').classList.remove('error-field');
-      
-      // Set submitting state
       isSubmitting = true;
       disableForm(registrationForm, true);
       showStatus(registrationStatus, "Submitting...");
-      
       try {
-        console.log('Submitting registration:', { nickname, number });
-        
-        // Submit registration data
-        const result = await sendRequest("/.netlify/functions/submit-registration", { 
-          nickname: nickname,
-          number: number
-        });
-        
-        console.log('Registration successful:', result);
-        
-        // Store registration ID
+        const result = await sendRequest("/.netlify/functions/submit-registration", { nickname, number });
         localStorage.setItem('registrationId', result.id);
-        // Also store nickname for use in the submission complete message
         localStorage.setItem('userNickname', nickname);
-        
-        // Show success message
         showStatus(registrationStatus, "Good luck", "success");
-        
-        // Transition to questionnaire with animation
         setTimeout(function() {
           registrationSection.style.opacity = '0';
           registrationSection.style.transform = 'translateY(-20px)';
-          
           setTimeout(function() {
             registrationSection.style.display = 'none';
             questionnaireSection.style.display = 'block';
-            
-            // Trigger a reflow before setting the opacity to ensure animation works
             void questionnaireSection.offsetWidth;
-            
             questionnaireSection.style.opacity = '1';
             questionnaireSection.style.transform = 'translateY(0)';
           }, 300);
         }, 1000);
-        
       } catch (error) {
-        console.error("Registration error:", error);
         showStatus(registrationStatus, error.message || "Error submitting form. Please try again.", "error");
         disableForm(registrationForm, false);
       } finally {
         isSubmitting = false;
       }
     });
-    
-    // Add input event listeners to clear error styling on input
-    ['nickname', 'number'].forEach(fieldId => {
-      const field = document.getElementById(fieldId);
-      if (field) {
-        field.addEventListener('input', function() {
-          this.classList.remove('error-field');
-          if (registrationStatus.classList.contains('error')) {
-            registrationStatus.textContent = '';
-            registrationStatus.className = 'status';
-          }
-        });
-      }
-    });
   }
   
-  // Handle questionnaire form submission
+  // === Questionnaire handling ===
   if (questionnaireForm) {
-    // Initial setup
     questionnaireSection.style.opacity = '0';
     questionnaireSection.style.transform = 'translateY(20px)';
-    
-    // Add validation for all question fields
     for (let i = 1; i <= 10; i++) {
-      const questionField = document.getElementById(`question${i}`);
-      if (questionField) {
-        // Clear error styling on input
-        questionField.addEventListener('input', function() {
+      const field = document.getElementById(`question${i}`);
+      if (field) {
+        field.addEventListener('input', function() {
           this.classList.remove('error-field');
         });
       }
     }
-    
     questionnaireForm.addEventListener('submit', async function(event) {
       event.preventDefault();
-      
-      // Prevent double submission
       if (isSubmitting) return;
-      
-      // Check if all questions are answered
       const answers = {};
       const answersList = [];
       let allAnswered = true;
       let firstEmptyField = null;
-      
-      // Validate each question field
       for (let i = 1; i <= 10; i++) {
-        const questionId = `question${i}`;
-        const questionField = document.getElementById(questionId);
-        if (!questionField) continue;
-        
-        const answer = questionField.value.trim();
-        questionField.classList.remove('error-field');
-        
-        if (!answer) {
+        const qid = `question${i}`;
+        const qField = document.getElementById(qid);
+        if (!qField) continue;
+        const ans = qField.value.trim();
+        qField.classList.remove('error-field');
+        if (!ans) {
           allAnswered = false;
-          questionField.classList.add('error-field');
-          
-          if (!firstEmptyField) {
-            firstEmptyField = questionField;
-          }
+          qField.classList.add('error-field');
+          if (!firstEmptyField) firstEmptyField = qField;
         } else {
-          // Store answer both in object (for score calculation) and list (for API)
-          answers[questionId] = answer;
-          answersList.push({
-            question: `Question ${i}`,
-            answer: answer
-          });
+          answers[qid] = ans;
+          answersList.push({ question: `Question ${i}`, answer: ans });
         }
       }
-      
-      // Show error if not all questions answered
       if (!allAnswered) {
         showStatus(questionnaireStatus, "Please answer all questions", "error");
-        
-        // Focus on first empty field
-        if (firstEmptyField) {
-          firstEmptyField.focus();
-        }
-        
+        if (firstEmptyField) firstEmptyField.focus();
         return;
       }
-      
-      // Set submitting state
       isSubmitting = true;
       disableForm(questionnaireForm, true);
       showStatus(questionnaireStatus, "Submitting...");
-      
       try {
-        // Get registration ID
         const registrationId = localStorage.getItem('registrationId');
-        
-        if (!registrationId) {
-          throw new Error("Registration information missing. Please start over.");
-        }
-        
-        console.log('Submitting questionnaire:', { registrationId, answerCount: answersList.length });
-        
-        // Calculate the score
+        if (!registrationId) throw new Error("Registration information missing. Please start over.");
         const score = calculateScore(answers);
-        console.log('Score calculated:', score);
-        
-        // Submit questionnaire data with score
         const result = await sendRequest("/.netlify/functions/submit-questionnaire", { 
-          registrationId: registrationId,
+          registrationId,
           answers: answersList,
-          score: score
+          score
         });
-        
-        console.log('Questionnaire submission successful:', result);
-        
-        // Get the user's nickname from localStorage
         const nickname = localStorage.getItem('userNickname') || 'User';
-        
-        // Create a completion container to replace the form
         const completionContainer = document.createElement('div');
         completionContainer.className = 'completion-container';
-        
-        // Add the score message with the user's nickname
         const scoreMessage = document.createElement('div');
         const scoreClass = score >= 7 ? 'high-score' : (score >= 4 ? 'medium-score' : 'low-score');
         scoreMessage.className = `status score-message ${scoreClass}`;
@@ -304,23 +263,15 @@ document.addEventListener('DOMContentLoaded', function() {
           <div class="score-name">${nickname}</div>
         `;
         completionContainer.appendChild(scoreMessage);
-        
-        // Replace the form with the completion container
         questionnaireForm.style.opacity = '0';
         questionnaireForm.style.transform = 'translateY(-20px)';
-        
         setTimeout(() => {
-          // Replace the form with the completion container
           questionnaireForm.parentNode.replaceChild(completionContainer, questionnaireForm);
-          
-          // Add animation to the completion container
-          void completionContainer.offsetWidth; // Force reflow
+          void completionContainer.offsetWidth;
           completionContainer.style.opacity = '1';
           completionContainer.style.transform = 'translateY(0)';
         }, 300);
-        
       } catch (error) {
-        console.error("Questionnaire error:", error);
         showStatus(questionnaireStatus, error.message || "Error submitting questionnaire. Please try again.", "error");
         disableForm(questionnaireForm, false);
       } finally {
@@ -329,125 +280,26 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
-  // Initialize page
+  // Init
   function init() {
-    // Add dynamic styles
     if (!document.getElementById('dynamic-styles')) {
       const style = document.createElement('style');
       style.id = 'dynamic-styles';
       style.textContent = `
-        .error-field {
-          border-color: #dc3545 !important;
-          background-color: #fff8f8 !important;
-        }
-        .error-field:focus {
-          box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25) !important;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeOut {
-          from { opacity: 1; transform: translateY(0); }
-          to { opacity: 0; transform: translateY(-20px); }
-        }
-        #questionnaire-section, #registration-section, .completion-container {
-          transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-        }
-        .status.info {
-          background-color: #cff4fc;
-          color: #055160;
-          border-left: 4px solid #0dcaf0;
-        }
-        .completion-container {
-          opacity: 0;
-          transform: translateY(20px);
-        }
-        .score-message {
-          padding: 25px;
-          margin: 0;
-          text-align: center;
-          border-radius: 8px;
-        }
-        .score-title {
-          font-size: 1.5rem;
-          margin-bottom: 15px;
-          font-weight: bold;
-        }
-        .score-value {
-          font-size: 2.5rem;
-          margin-bottom: 10px;
-          font-weight: bold;
-        }
-        .score-name {
-          font-size: 1.1rem;
-          font-style: italic;
-        }
-        .high-score {
-          background-color: #d4edda;
-          color: #155724;
-          border: 2px solid #28a745;
-        }
-        .medium-score {
-          background-color: #fff3cd;
-          color: #856404;
-          border: 2px solid #ffc107;
-        }
-        .low-score {
-          background-color: #f8d7da;
-          color: #721c24;
-          border: 2px solid #dc3545;
-        }
+        .error-field { border-color:#dc3545 !important; background:#fff8f8 !important; }
+        .status.info { background:#cff4fc; color:#055160; border-left:4px solid #0dcaf0; }
+        .completion-container { opacity:0; transform:translateY(20px); transition:opacity .3s, transform .3s; }
+        .score-message { padding:25px; margin:0; text-align:center; border-radius:8px; }
+        .score-title { font-size:1.5rem; margin-bottom:15px; font-weight:bold; }
+        .score-value { font-size:2.5rem; margin-bottom:10px; font-weight:bold; }
+        .score-name { font-size:1.1rem; font-style:italic; }
+        .high-score { background:#d4edda; color:#155724; border:2px solid #28a745; }
+        .medium-score { background:#fff3cd; color:#856404; border:2px solid #ffc107; }
+        .low-score { background:#f8d7da; color:#721c24; border:2px solid #dc3545; }
       `;
       document.head.appendChild(style);
     }
   }
-  
-  // Run initialization
   init();
-  // new code
-document.addEventListener('visibilitychange', function() {
-  if (document.hidden) {
-    // Page is not visible, start timer
-    setTimeout(function() {
-      if (document.hidden) {
-        // Page is still not visible after 5 seconds, submit form
-        submitForm();
-      }
-    }, 5000);
-  }
 });
-
-function submitForm() {
-  const questionnaireForm = document.getElementById('questionnaire-form');
-  const registrationForm = document.getElementById('registration-form');
-
-  const formData = new FormData(questionnaireForm);
-  const registrationData = new FormData(registrationForm);
-
-  // Check if questionnaire form is empty, if so, send "FAILED" to database
-  const questionnaireData = {};
-  let questionnaireIsEmpty = true;
-  for (const [key, value] of formData) {
-    questionnaireData[key] = value;
-    if (value !== '') {
-      questionnaireIsEmpty = false;
-    }
-  }
-  if (questionnaireIsEmpty) {
-    questionnaireData = { 'FAILED': 'FAILED' };
-  }
-
-  // Send data to database
-  sendData({ questionnaire: questionnaireData, registration: registrationData });
-
-  // Display message to user
-  alert('Sorry, you are not allowed to leave the page due to security reasons. Unfortunately you failed the test');
-}
-
-function sendData(formData) {
-  // Send data to database using fetch API or AJAX
-  // For demonstration purposes, I'll use a simple console.log
-  console.log('Sending data to database:', formData);
-}
-});
+</script>
