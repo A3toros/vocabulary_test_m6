@@ -15,16 +15,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Correct answers
   const correctAnswers = {
-    'question1': ['pitch', 'Pitch', 'Sales Pitch', 'sales pitch', 'Sales pitch'],
-    'question2': ['Launch', 'launch'],
-    'question3': ['server', 'Server',],
-    'question4': ['cover letter', 'Cover letter', 'Cover-Letter', 'cover-letter', 'Cover-letter', 'Cover Letter'],
-    'question5': ['compensation', 'Compensation', 'compensate', 'Compensate'],
-    'question6': ['Challenging', 'challenging'],
-    'question7': ['Appropriate', 'appropriate'],
+    'question1': ['pitch', 'sales pitch',],
+    'question2': ['launch', 'to launch'],
+    'question3': ['server',],
+    'question4': ['cover letter'],
+    'question5': ['compensate', 'to compensate' ],
+    'question6': ['challenging'],
+    'question7': ['appropriate'],
     'question8': ['Criticism', 'criticism'],
-    'question9': ['Request', 'request'],
-    'question10': ['portfolio', 'Portfolio']
+    'question9': ['request', 'to request'],
+    'question10': ['portfolio']
   };
 
   // Utility functions
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function isAnswerCorrect(questionId, userAnswer) {
     const possibleAnswers = correctAnswers[questionId] || [];
-    const normalizedUserAnswer = userAnswer.trim().toLowerCase();
+    const normalizedUserAnswer = (userAnswer || '').trim().toLowerCase();
     return possibleAnswers.some(ans => normalizedUserAnswer === ans.trim().toLowerCase());
   }
 
@@ -82,6 +82,77 @@ document.addEventListener('DOMContentLoaded', function() {
     return { answers, answersList };
   }
 
+  // Build results breakdown HTML (user answers + correctness + correct answer when wrong)
+  function buildResultsSummaryHTML(answers) {
+    let html = `<div id="results-summary"><h2>Results Breakdown</h2>`;
+    Object.keys(correctAnswers).forEach((qKey, idx) => {
+      const userAnsRaw = answers[qKey] ?? "FAILED";
+      const userAns = (userAnsRaw || "FAILED").toString();
+      const correctList = correctAnswers[qKey] || [];
+      const canonicalCorrect = correctList.length ? correctList[0] : '';
+      const correctAll = correctList.join(' / ');
+
+      const correct = isAnswerCorrect(qKey, userAns);
+      const itemClass = correct ? 'correct' : 'incorrect';
+      const displayUser = userAns === '' ? 'FAILED' : userAns;
+
+      html += `
+        <div class="answer-row">
+          <span class="${itemClass}"><strong>${idx + 1}.</strong> ${escapeHTML(displayUser)}</span>
+          ${correct ? '' : `<span class="correct-answer">→ ${escapeHTML(canonicalCorrect || correctAll || '—')}</span>`}
+        </div>
+      `;
+    });
+    html += `</div>`;
+    return html;
+  }
+
+  // Escape HTML to prevent injection in rendered answers
+  function escapeHTML(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function buildCompletionHTML(score, nickname, answers, showFailedNotice = false) {
+    const scoreClass = score >= 7 ? 'high-score' : (score >= 4 ? 'medium-score' : 'low-score');
+    const breakdown = buildResultsSummaryHTML(answers);
+    return `
+      <div class="status score-message ${scoreClass}">
+        <div class="score-title">Quiz Results</div>
+        <div class="score-value">${score} out of 10</div>
+        <div class="score-name">${escapeHTML(nickname)}</div>
+        ${showFailedNotice ? `
+          <div class="score-failed-message">
+            Sorry, you are not allowed to leave the page due to security reasons. Unfortunately you failed the test.
+          </div>` : ``}
+      </div>
+      ${breakdown}
+    `;
+  }
+
+  async function showCompletion(score, showFailedNotice = false) {
+    const nickname = localStorage.getItem('userNickname') || 'User';
+    const completionContainer = document.createElement('div');
+    completionContainer.className = 'completion-container';
+
+    // We need the latest answers as shown to the user in the breakdown (even if FAILED)
+    const { answers } = gatherAnswers();
+    completionContainer.innerHTML = buildCompletionHTML(score, nickname, answers, showFailedNotice);
+
+    questionnaireForm.style.opacity = '0';
+    questionnaireForm.style.transform = 'translateY(-20px)';
+    setTimeout(() => {
+      questionnaireForm.parentNode.replaceChild(completionContainer, questionnaireForm);
+      void completionContainer.offsetWidth;
+      completionContainer.style.opacity = '1';
+      completionContainer.style.transform = 'translateY(0)';
+    }, 300);
+  }
+
   async function autoSubmitQuestionnaire() {
     if (isSubmitting) return;
     isSubmitting = true;
@@ -101,29 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
         score
       });
 
-      const nickname = localStorage.getItem('userNickname') || 'User';
-      const completionContainer = document.createElement('div');
-      completionContainer.className = 'completion-container';
-      const scoreClass = score >= 7 ? 'high-score' : (score >= 4 ? 'medium-score' : 'low-score');
-
-      completionContainer.innerHTML = `
-        <div class="status score-message ${scoreClass}">
-          <div class="score-title">Quiz Results</div>
-          <div class="score-value">${score} out of 10</div>
-          <div class="score-name">${nickname}</div>
-          <div class="score-failed-message">Sorry, you are not allowed to leave the page due to security reasons. Unfortunately you failed the test.</div>
-        </div>
-      `;
-
-      questionnaireForm.style.opacity = '0';
-      questionnaireForm.style.transform = 'translateY(-20px)';
-      setTimeout(() => {
-        questionnaireForm.parentNode.replaceChild(completionContainer, questionnaireForm);
-        void completionContainer.offsetWidth;
-        completionContainer.style.opacity = '1';
-        completionContainer.style.transform = 'translateY(0)';
-      }, 300);
-
+      await showCompletion(score, true);
       clearInterval(countdownInterval);
     } catch (error) {
       console.error(error);
@@ -204,28 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
           score
         });
 
-        const nickname = localStorage.getItem('userNickname') || 'User';
-        const completionContainer = document.createElement('div');
-        completionContainer.className = 'completion-container';
-        const scoreClass = score >= 7 ? 'high-score' : (score >= 4 ? 'medium-score' : 'low-score');
-
-        completionContainer.innerHTML = `
-          <div class="status score-message ${scoreClass}">
-            <div class="score-title">Quiz Results</div>
-            <div class="score-value">${score} out of 10</div>
-            <div class="score-name">${nickname}</div>
-          </div>
-        `;
-
-        questionnaireForm.style.opacity = '0';
-        questionnaireForm.style.transform = 'translateY(-20px)';
-        setTimeout(() => {
-          questionnaireForm.parentNode.replaceChild(completionContainer, questionnaireForm);
-          void completionContainer.offsetWidth;
-          completionContainer.style.opacity = '1';
-          completionContainer.style.transform = 'translateY(0)';
-        }, 300);
-
+        await showCompletion(score, false);
         clearInterval(countdownInterval);
       } catch (err) {
         console.error(err);
@@ -257,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
   }
 
-  // Initialize dynamic styles for errors and Matrix timer
+  // Initialize dynamic styles for errors, timer, and results breakdown
   function initStyles() {
     if (!document.getElementById('dynamic-styles')) {
       const style = document.createElement('style');
@@ -279,6 +307,39 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         @media(max-width: 480px) {
           .matrix-timer { font-size: 1.5rem; letter-spacing: 2px; margin: 5px 0 15px 0; }
+        }
+
+        /* Results breakdown styles */
+        #results-summary { margin-top: 20px; font-size: 1rem; }
+        #results-summary h2 { margin: 0 0 10px; font-size: 1.25rem; }
+        .answer-row {
+          margin: 6px 0;
+          padding: 6px;
+          border-radius: 6px;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+        .answer-row .correct {
+          background-color: #0f3d0f;
+          color: #00ff00;
+          padding: 5px 10px;
+          border-radius: 5px;
+        }
+        .answer-row .incorrect {
+          background-color: #3d0f0f;
+          color: #ff5555;
+          padding: 5px 10px;
+          border-radius: 5px;
+        }
+        .answer-row .correct-answer {
+          color: #00ff00;
+          font-weight: bold;
+        }
+        @media(max-width: 480px) {
+          #results-summary { font-size: 0.95rem; }
+          .answer-row { padding: 5px; gap: 8px; }
         }
       `;
       document.head.appendChild(style);
