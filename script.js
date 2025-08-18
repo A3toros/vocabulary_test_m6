@@ -70,59 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
-    // script.js
-  let isSubmitting = false;
-  const questionnaireForm = document.getElementById('questionnaire-form');
-  const registrationForm = document.getElementById('registration-form');
-
-  // Function to send form data to database
-  function sendData(formData) {
-    // Send data to database using fetch API or AJAX
-    // For demonstration purposes, I'll use a simple console.log
-    console.log('Sending data to database:', formData);
-  }
-
-  // Function to handle visibility change
-  function handleVisibilityChange() {
-    if (document.hidden) {
-      // Page is not visible, start timer
-      setTimeout(() => {
-        if (document.hidden) {
-          // Page is still not visible after 5 seconds, submit form
-          submitForm();
-        }
-      }, 5000);
-    }
-  }
-
-  // Function to submit form
-  function submitForm() {
-    if (!isSubmitting) {
-      isSubmitting = true;
-      const formData = new FormData(questionnaireForm);
-      const registrationData = new FormData(registrationForm);
-
-      // Check if all fields are filled, if not, send "FAILED" to database
-      const questionnaireData = {};
-      for (const [key, value] of formData) {
-        questionnaireData[key] = value || 'FAILED';
-      }
-
-      const registrationFormData = {};
-      for (const [key, value] of registrationData) {
-        registrationFormData[key] = value || 'FAILED';
-      }
-
-      // Send data to database
-      sendData({ questionnaire: questionnaireData, registration: registrationFormData });
-
-      // Display message to user
-      alert('Sorry, you are not allowed to leave the page due to security reasons. Unfortunately you failed the test');
-    }
-  }
-
-  // Add event listener for visibility change
-  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
   // Check if answer is correct (case-insensitive, trimmed comparison)
   function isAnswerCorrect(questionId, userAnswer) {
     const possibleAnswers = correctAnswers[questionId] || [];
@@ -457,4 +405,56 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Run initialization
   init();
+  
+// ... (existing code remains the same)
+
+  // New code starts here
+  let isSubmitting = false;
+  const questionnaireForm = document.getElementById('questionnaire-form');
+  const registrationForm = document.getElementById('registration-form');
+
+  function sendData(formData) {
+    // Send data to database using fetch API or AJAX
+    // For demonstration purposes, I'll use a simple console.log
+    console.log('Sending data to database:', formData);
+  }
+
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      // Page is not visible, start timer
+      setTimeout(() => {
+        if (document.hidden) {
+          // Page is still not visible after 5 seconds, submit form
+          submitForm();
+        }
+      }, 5000);
+    }
+  }
+
+  function submitForm() {
+    if (!isSubmitting) {
+      isSubmitting = true;
+      const formData = new FormData(questionnaireForm);
+      const registrationData = new FormData(registrationForm);
+
+      // Check if all fields are filled, if not, send "FAILED" to database
+      const questionnaireData = {};
+      for (const [key, value] of formData) {
+        questionnaireData[key] = value || 'FAILED';
+      }
+
+      const registrationFormData = {};
+      for (const [key, value] of registrationData) {
+        registrationFormData[key] = value || 'FAILED';
+      }
+
+      // Send data to database
+      sendData({ questionnaire: questionnaireData, registration: registrationFormData });
+
+      // Display message to user
+      alert('Sorry, you are not allowed to leave the page due to security reasons. Unfortunately you failed the test');
+    }
+  }
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 });
