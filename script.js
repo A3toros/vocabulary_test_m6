@@ -15,16 +15,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Correct answers
   const correctAnswers = {
-    'question1': ['RAM', 'ram', 'Ram', 'Random Access Memory'],
-    'question2': ['Broadband', 'broadband', 'broadband internet', 'Broadband Internet'],
-    'question3': ['database', 'Database'],
-    'question4': ['Spreadsheet', 'spreadsheet', 'spread sheet', 'Spread sheet', 'Spread Sheet'],
-    'question5': ['Technical Support', 'technical support', 'Technical support', 'IT support', 'IT Support', 'it suppport'],
-    'question6': ['Server', 'server', 'Remote server', 'remote server'],
-    'question7': ['Software', 'software'],
-    'question8': ['Processor', 'processor', 'CPU', 'cpu'],
-    'question9': ['Web Browser', 'web browser', 'Browser', 'browser', 'Web browser', 'Web-browser', 'web-browser'],
-    'question10': ['Web designer', 'web desiger', 'Web Designer', 'Web-Designer', 'web-designer', 'Web-designer', 'Web Designer']
+    'question1': ['pitch', 'Pitch', 'Sales Pitch', 'sales pitch', 'Sales pitch'],
+    'question2': ['Launch', 'launch'],
+    'question3': ['server', 'Server',],
+    'question4': ['cover letter', 'Cover letter', 'Cover-Letter', 'cover-letter', 'Cover-letter', 'Cover Letter'],
+    'question5': ['compensation', 'Compensation', 'compensate', 'Compensate'],
+    'question6': ['Challenging', 'challenging'],
+    'question7': ['Appropriate', 'appropriate'],
+    'question8': ['Criticism', 'criticism'],
+    'question9': ['Request', 'request'],
+    'question10': ['portfolio', 'Portfolio']
   };
 
   // Utility functions
