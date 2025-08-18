@@ -405,64 +405,49 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Run initialization
   init();
-  
-// ... (existing code remains the same)
+  // new code
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    // Page is not visible, start timer
+    setTimeout(function() {
+      if (document.hidden) {
+        // Page is still not visible after 5 seconds, submit form
+        submitForm();
+      }
+    }, 5000);
+  }
+});
 
-// ... (existing code remains the same)
-
-  // New code starts here
-  let isSubmitting = false;
+function submitForm() {
   const questionnaireForm = document.getElementById('questionnaire-form');
   const registrationForm = document.getElementById('registration-form');
 
-  function sendData(formData) {
-    // Send data to database using fetch API or AJAX
-    // For demonstration purposes, I'll use a simple console.log
-    console.log('Sending data to database:', formData);
-  }
+  const formData = new FormData(questionnaireForm);
+  const registrationData = new FormData(registrationForm);
 
-  function handleVisibilityChange() {
-    if (document.hidden) {
-      // Page is not visible, start timer
-      setTimeout(() => {
-        if (document.hidden) {
-          // Page is still not visible after 5 seconds, submit form
-          submitForm();
-        }
-      }, 5000);
+  // Check if questionnaire form is empty, if so, send "FAILED" to database
+  const questionnaireData = {};
+  let questionnaireIsEmpty = true;
+  for (const [key, value] of formData) {
+    questionnaireData[key] = value;
+    if (value !== '') {
+      questionnaireIsEmpty = false;
     }
   }
-
-  function submitForm() {
-    if (!isSubmitting) {
-      isSubmitting = true;
-      const formData = new FormData(questionnaireForm);
-      const registrationData = new FormData(registrationForm);
-
-      // Check if all fields are filled, if not, send "FAILED" to database
-      const questionnaireData = {};
-      for (const [key, value] of formData) {
-        questionnaireData[key] = value || 'FAILED';
-      }
-
-      const registrationFormData = {};
-      for (const [key, value] of registrationData) {
-        registrationFormData[key] = value || 'FAILED';
-      }
-
-      // Send data to database
-      sendData({ questionnaire: questionnaireData, registration: registrationFormData });
-
-      // Display message to user
-      alert('Sorry, you are not allowed to leave the page due to security reasons. Unfortunately you failed the test');
-    }
+  if (questionnaireIsEmpty) {
+    questionnaireData = { 'FAILED': 'FAILED' };
   }
 
-  document.addEventListener('visibilitychange', handleVisibilityChange);
+  // Send data to database
+  sendData({ questionnaire: questionnaireData, registration: registrationData });
 
-  // Add event listener to registration form to prevent default submission
-  registrationForm.addEventListener('submit', function(event) {
-    event.preventDefault();
-    submitForm();
-  });
+  // Display message to user
+  alert('Sorry, you are not allowed to leave the page due to security reasons. Unfortunately you failed the test');
+}
+
+function sendData(formData) {
+  // Send data to database using fetch API or AJAX
+  // For demonstration purposes, I'll use a simple console.log
+  console.log('Sending data to database:', formData);
+}
 });
