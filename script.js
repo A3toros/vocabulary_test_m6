@@ -271,11 +271,11 @@ document.addEventListener('DOMContentLoaded', function() {
         .matrix-timer {
           font-family: 'Courier New', monospace;
           font-size: 2rem;
-          color: #00ff00;
+          color: #0c3c96ff;
           text-align: center;
           margin: 10px 0 20px 0;
           letter-spacing: 3px;
-          text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00;
+          text-shadow: 0 0 5px #7e6f85ff, 0 0 10px #603492ff;
         }
         @media(max-width: 480px) {
           .matrix-timer { font-size: 1.5rem; letter-spacing: 2px; margin: 5px 0 15px 0; }
