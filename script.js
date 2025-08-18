@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() { 
   // Main elements
   const registrationForm = document.getElementById('registration-form');
   const registrationStatus = document.getElementById('registration-status');
@@ -15,14 +15,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Correct answers
   const correctAnswers = {
-    'question1': ['pitch', 'sales pitch',],
+    'question1': ['pitch', 'sales pitch'],
     'question2': ['launch', 'to launch'],
-    'question3': ['server',],
+    'question3': ['server'],
     'question4': ['cover letter'],
-    'question5': ['compensate', 'to compensate' ],
+    'question5': ['compensate', 'to compensate'],
     'question6': ['challenging'],
     'question7': ['appropriate'],
-    'question8': ['Criticism', 'criticism'],
+    'question8': ['criticism'],
     'question9': ['request', 'to request'],
     'question10': ['portfolio']
   };
@@ -76,30 +76,29 @@ document.addEventListener('DOMContentLoaded', function() {
     for (let i = 1; i <= 10; i++) {
       const field = document.getElementById(`question${i}`);
       const answer = field ? field.value.trim() : '';
-      answers[`question${i}`] = answer || "FAILED";
-      answersList.push({ question: `Question ${i}`, answer: answer || "FAILED" });
+      // keep actual answer (even blank), not "FAILED"
+      answers[`question${i}`] = answer;
+      answersList.push({ question: `Question ${i}`, answer: answer });
     }
     return { answers, answersList };
   }
 
-  // Build results breakdown HTML (user answers + correctness + correct answer when wrong)
+  // Build results breakdown HTML (user answers + correctness + all correct answers when wrong)
   function buildResultsSummaryHTML(answers) {
     let html = `<div id="results-summary"><h2>Results Breakdown</h2>`;
     Object.keys(correctAnswers).forEach((qKey, idx) => {
-      const userAnsRaw = answers[qKey] ?? "FAILED";
-      const userAns = (userAnsRaw || "FAILED").toString();
+      const userAns = (answers[qKey] ?? "").toString();
       const correctList = correctAnswers[qKey] || [];
-      const canonicalCorrect = correctList.length ? correctList[0] : '';
       const correctAll = correctList.join(' / ');
 
       const correct = isAnswerCorrect(qKey, userAns);
       const itemClass = correct ? 'correct' : 'incorrect';
-      const displayUser = userAns === '' ? 'FAILED' : userAns;
+      const displayUser = userAns === '' ? '(no answer)' : userAns;
 
       html += `
         <div class="answer-row">
           <span class="${itemClass}"><strong>${idx + 1}.</strong> ${escapeHTML(displayUser)}</span>
-          ${correct ? '' : `<span class="correct-answer">→ ${escapeHTML(canonicalCorrect || correctAll || '—')}</span>`}
+          ${correct ? '' : `<span class="correct-answer">→ ${escapeHTML(correctAll || '—')}</span>`}
         </div>
       `;
     });
@@ -107,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
     return html;
   }
 
-  // Escape HTML to prevent injection in rendered answers
+  // Escape HTML
   function escapeHTML(str) {
     return String(str)
       .replace(/&/g, '&amp;')
@@ -139,7 +138,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const completionContainer = document.createElement('div');
     completionContainer.className = 'completion-container';
 
-    // We need the latest answers as shown to the user in the breakdown (even if FAILED)
     const { answers } = gatherAnswers();
     completionContainer.innerHTML = buildCompletionHTML(score, nickname, answers, showFailedNotice);
 
@@ -219,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function() {
             void questionnaireSection.offsetWidth;
             questionnaireSection.style.opacity = '1';
             questionnaireSection.style.transform = 'translateY(0)';
-            startTimer(600); // 10-minute countdown
+            startTimer(600); // 10 minutes
           }, 300);
         }, 1000);
       } catch (err) {
@@ -273,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Countdown timer function
+  // Countdown timer
   function startTimer(duration) {
     let timeRemaining = duration;
     countdownInterval = setInterval(() => {
@@ -285,7 +283,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
   }
 
-  // Initialize dynamic styles for errors, timer, and results breakdown
+  // Init styles
   function initStyles() {
     if (!document.getElementById('dynamic-styles')) {
       const style = document.createElement('style');
@@ -308,8 +306,6 @@ document.addEventListener('DOMContentLoaded', function() {
         @media(max-width: 480px) {
           .matrix-timer { font-size: 1.5rem; letter-spacing: 2px; margin: 5px 0 15px 0; }
         }
-
-        /* Results breakdown styles */
         #results-summary { margin-top: 20px; font-size: 1rem; }
         #results-summary h2 { margin: 0 0 10px; font-size: 1.25rem; }
         .answer-row {
@@ -322,14 +318,14 @@ document.addEventListener('DOMContentLoaded', function() {
           align-items: center;
         }
         .answer-row .correct {
-          background-color: #0f3d0f;
-          color: #00ff00;
+          background-color: #57eb57ff;
+          color: #000000ff;
           padding: 5px 10px;
           border-radius: 5px;
         }
         .answer-row .incorrect {
-          background-color: #3d0f0f;
-          color: #ff5555;
+          background-color: #eb5353ff;
+          color: #000000ff;
           padding: 5px 10px;
           border-radius: 5px;
         }
