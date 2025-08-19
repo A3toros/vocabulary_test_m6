@@ -70,18 +70,20 @@ document.addEventListener('DOMContentLoaded', function() {
     return score;
   }
 
-  function gatherAnswers() {
-    const answers = {};
-    const answersList = [];
-    for (let i = 1; i <= 10; i++) {
-      const field = document.getElementById(`question${i}`);
-      const answer = field ? field.value.trim() : '';
-      // keep actual answer (even blank), not "FAILED"
-      answers[`question${i}`] = answer;
-      answersList.push({ question: `Question ${i}`, answer: answer });
-    }
-    return { answers, answersList };
+function gatherAnswers() {
+  const answers = {};
+  const answersList = [];
+  for (let i = 1; i <= 10; i++) {
+    const field = document.getElementById(`question${i}`);
+    const rawAnswer = field ? field.value.trim() : "";
+    // What user actually typed (used for UI + scoring)
+    answers[`question${i}`] = rawAnswer;
+    // What we send to DB (replace blanks with FAILED)
+    const dbAnswer = rawAnswer === "" ? "FAILED" : rawAnswer;
+    answersList.push({ question: `Question ${i}`, answer: dbAnswer });
   }
+  return { answers, answersList };
+}
 
   // Build results breakdown HTML (user answers + correctness + all correct answers when wrong)
   function buildResultsSummaryHTML(answers) {
