@@ -168,7 +168,7 @@ button:disabled {
 }
 
 /* Form sections */
-#registration-section, 
+#signin-section, 
 #questionnaire-section {
   margin-bottom: 30px;
 }
@@ -217,7 +217,7 @@ form.completed select {
   to { opacity: 1; transform: translateY(0); }
 }
 
-#registration-section, 
+#signin-section, 
 #questionnaire-section {
   animation: fadeIn 0.4s ease-out;
 }
