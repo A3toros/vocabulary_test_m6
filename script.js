@@ -1,5 +1,45 @@
 document.addEventListener('DOMContentLoaded', function() { 
-  // Main elements
+// ======== User database ========
+const usersDB = [
+  { nickname: 'user1', number: '1', submitted: false, answers: [], score: 0 },
+  { nickname: 'user2', number: '2', submitted: false, answers: [], score: 0 },
+  // ... up to user16
+];
+
+let currentUser = null;
+
+// Login form handling
+const loginForm = document.getElementById('login-form');
+const loginStatus = document.getElementById('login-status');
+
+loginForm.addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const nickname = document.getElementById('login-nickname').value.trim();
+  const number = document.getElementById('login-number').value.trim();
+
+  const user = usersDB.find(u => u.nickname === nickname && u.number === number);
+
+  if (!user) {
+    loginStatus.textContent = "Invalid nickname or number";
+    loginStatus.className = "status error";
+    return;
+  }
+
+  currentUser = user;
+
+  // Hide login form, show questionnaire
+  document.getElementById('login-section').style.display = 'none';
+  document.getElementById('questionnaire-section').style.display = 'block';
+
+  // If already submitted → show results
+  if (currentUser.submitted) {
+    await showCompletion(currentUser.score, false);
+  } else {
+    startTimer(600); // 10 minutes
+  }
+});
+
   const registrationForm = document.getElementById('registration-form');
   const registrationStatus = document.getElementById('registration-status');
   const registrationSection = document.getElementById('registration-section');
