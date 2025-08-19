@@ -24,9 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       const result = await response.json();
+      console.log("Login result:", result); // Debug
 
       if (!result.success) {
-        loginStatus.textContent = "Invalid username or password";
+        loginStatus.textContent = result.error || "Invalid username or password";
         loginStatus.className = "status error";
         return;
       }
@@ -178,11 +179,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const { answers, answersList } = gatherAnswers();
       const score = calculateScore(answers);
 
-      await fetch('/.netlify/functions/submit', {
+      const response = await fetch('/.netlify/functions/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, answers: answersList, score })
       });
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || "Submission failed");
 
       await showCompletion(score, showFailedNotice);
       clearInterval(countdownInterval);
@@ -217,7 +221,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const minutes = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
       const seconds = (timeRemaining % 60).toString().padStart(2, '0');
       if (timerElement) timerElement.textContent = `${minutes}:${seconds}`;
-      if (timeRemaining <= 0) { clearInterval(countdownInterval); submitToServer(true); }
+      if (timeRemaining <= 0) {
+        clearInterval(countdownInterval);
+        submitToServer(true);
+      }
       timeRemaining--;
     }, 1000);
   }
