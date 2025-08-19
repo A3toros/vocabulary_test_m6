@@ -1,73 +1,66 @@
 document.addEventListener('DOMContentLoaded', function() { 
-// ======== User database ========
-const usersDB = [
-  { username: 'user1', password: '1', nickname: '', number: '1', submitted: false, answers: [], score: 0 },
-  { username: 'user2', password: '2', nickname: '', number: '2', submitted: false, answers: [], score: 0 },
-  { username: 'user3', password: '3', nickname: '', number: '3', submitted: false, answers: [], score: 0 },
-  { username: 'user4', password: '4', nickname: '', number: '4', submitted: false, answers: [], score: 0 },
-  { username: 'user5', password: '5', nickname: '', number: '5', submitted: false, answers: [], score: 0 },
-  { username: 'user6', password: '6', nickname: '', number: '6', submitted: false, answers: [], score: 0 },
-  { username: 'user7', password: '7', nickname: '', number: '7', submitted: false, answers: [], score: 0 },
-  { username: 'user8', password: '8', nickname: '', number: '8', submitted: false, answers: [], score: 0 },
-  { username: 'user9', password: '9', nickname: '', number: '9', submitted: false, answers: [], score: 0 },
-  { username: 'user10', password: '10', nickname: '', number: '10', submitted: false, answers: [], score: 0 },
-  { username: 'user11', password: '11', nickname: '', number: '11', submitted: false, answers: [], score: 0 },
-  { username: 'user12', password: '12', nickname: '', number: '12', submitted: false, answers: [], score: 0 },
-  { username: 'user13', password: '13', nickname: '', number: '13', submitted: false, answers: [], score: 0 },
-  { username: 'user14', password: '14', nickname: '', number: '14', submitted: false, answers: [], score: 0 },
-  { username: 'user15', password: '15', nickname: '', number: '15', submitted: false, answers: [], score: 0 },
-  { username: 'user16', password: '16', nickname: '', number: '16', submitted: false, answers: [], score: 0 },
-];
-
-
-let currentUser = null;
-
-// Login form handling
-const loginForm = document.getElementById('login-form');
-const loginStatus = document.getElementById('login-status');
-
-loginForm.addEventListener('submit', async e => {
-  e.preventDefault();
-
-  const nickname = document.getElementById('login-nickname').value.trim();
-  const number = document.getElementById('login-number').value.trim();
-
-  const user = usersDB.find(u => u.nickname === nickname && u.number === number);
-
-  if (!user) {
-    loginStatus.textContent = "Invalid nickname or number";
-    loginStatus.className = "status error";
-    return;
-  }
-
-  currentUser = user;
-
-  // Hide login form, show questionnaire
-  document.getElementById('login-section').style.display = 'none';
-  document.getElementById('questionnaire-section').style.display = 'block';
-
-  // If already submitted → show results
-  if (currentUser.submitted) {
-    await showCompletion(currentUser.score, false);
-  } else {
-    startTimer(600); // 10 minutes
-  }
+const response = await fetch('/.netlify/functions/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ username, password })
 });
 
-  const registrationForm = document.getElementById('registration-form');
-  const registrationStatus = document.getElementById('registration-status');
-  const registrationSection = document.getElementById('registration-section');
+const result = await response.json();
+if (result.success) {
+  // store user info locally
+  localStorage.setItem('loggedInUser', JSON.stringify(result.user));
+} else {
+  showLoginError("Invalid credentials");
+}
+
+
+  let currentUser = null;
+
+  // ======== Login form handling ========
+  const loginForm = document.getElementById('login-form');
+  const loginStatus = document.getElementById('login-status');
+  const loginSection = document.getElementById('login-section');
   const questionnaireSection = document.getElementById('questionnaire-section');
+
+  loginForm.addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value.trim();
+
+    const user = usersDB.find(u => u.username === username && u.password === password);
+
+    if (!user) {
+      loginStatus.textContent = "Invalid username or password";
+      loginStatus.className = "status error";
+      return;
+    }
+
+    currentUser = user;
+    localStorage.setItem('userId', user.username); // Mock for DB id
+    localStorage.setItem('userNickname', user.nickname);
+
+    // Hide login, show questionnaire
+    loginSection.style.display = 'none';
+    questionnaireSection.style.display = 'block';
+
+    // Check if already submitted
+    if (currentUser.submitted) {
+      await showCompletion(currentUser.score, false);
+    } else {
+      startTimer(600); // 10 minutes
+    }
+  });
+
+  // ======== Questionnaire logic ========
   const questionnaireForm = document.getElementById('questionnaire-form');
   const questionnaireStatus = document.getElementById('questionnaire-status');
   const timerElement = document.getElementById('timer');
 
-  // Track submission state
   let isSubmitting = false;
   let countdownInterval;
   let visibilityTimeout;
 
-  // Correct answers
   const correctAnswers = {
     'question1': ['pitch', 'sales pitch'],
     'question2': ['launch', 'to launch'],
@@ -81,7 +74,6 @@ loginForm.addEventListener('submit', async e => {
     'question10': ['portfolio']
   };
 
-  // Utility functions
   function showStatus(element, message, type) {
     element.textContent = message;
     element.className = `status ${type || ''}`;
@@ -92,22 +84,6 @@ loginForm.addEventListener('submit', async e => {
 
   function disableForm(form, disable = true) {
     Array.from(form.elements).forEach(el => el.disabled = disable);
-  }
-
-  async function sendRequest(url, data) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        const errorMessage = result.error || result.details || `Server responded with status ${response.status}`;
-        throw new Error(errorMessage);
-      }
-      return result;
-    } catch (error) { throw error; }
   }
 
   function isAnswerCorrect(questionId, userAnswer) {
@@ -124,22 +100,19 @@ loginForm.addEventListener('submit', async e => {
     return score;
   }
 
-function gatherAnswers() {
-  const answers = {};
-  const answersList = [];
-  for (let i = 1; i <= 10; i++) {
-    const field = document.getElementById(`question${i}`);
-    const rawAnswer = field ? field.value.trim() : "";
-    // What user actually typed (used for UI + scoring)
-    answers[`question${i}`] = rawAnswer;
-    // What we send to DB (replace blanks with FAILED)
-    const dbAnswer = rawAnswer === "" ? "FAILED" : rawAnswer;
-    answersList.push({ question: `Question ${i}`, answer: dbAnswer });
+  function gatherAnswers() {
+    const answers = {};
+    const answersList = [];
+    for (let i = 1; i <= 10; i++) {
+      const field = document.getElementById(`question${i}`);
+      const rawAnswer = field ? field.value.trim() : "";
+      answers[`question${i}`] = rawAnswer;
+      const dbAnswer = rawAnswer === "" ? "FAILED" : rawAnswer;
+      answersList.push({ question: `Question ${i}`, answer: dbAnswer });
+    }
+    return { answers, answersList };
   }
-  return { answers, answersList };
-}
 
-  // Build results breakdown HTML (user answers + correctness + all correct answers when wrong)
   function buildResultsSummaryHTML(answers) {
     let html = `<div id="results-summary"><h2>Results Breakdown</h2>`;
     Object.keys(correctAnswers).forEach((qKey, idx) => {
@@ -162,7 +135,6 @@ function gatherAnswers() {
     return html;
   }
 
-  // Escape HTML
   function escapeHTML(str) {
     return String(str)
       .replace(/&/g, '&amp;')
@@ -214,17 +186,16 @@ function gatherAnswers() {
     showStatus(questionnaireStatus, "Auto-submitting...", "error");
 
     try {
-      const registrationId = localStorage.getItem('registrationId');
-      if (!registrationId) throw new Error("Registration missing. Please restart.");
+      const userId = localStorage.getItem('userId');
+      if (!userId) throw new Error("User missing. Please restart.");
 
       const { answers, answersList } = gatherAnswers();
       const score = calculateScore(answers);
 
-      await sendRequest("/.netlify/functions/submit-questionnaire", {
-        registrationId,
-        answers: answersList,
-        score
-      });
+      // Save to DB (for now mock)
+      currentUser.submitted = true;
+      currentUser.answers = answersList;
+      currentUser.score = score;
 
       await showCompletion(score, true);
       clearInterval(countdownInterval);
@@ -234,54 +205,6 @@ function gatherAnswers() {
       disableForm(questionnaireForm, false);
       isSubmitting = false;
     }
-  }
-
-  // Registration submission
-  if (registrationForm) {
-    registrationForm.addEventListener('submit', async e => {
-      e.preventDefault();
-      if (isSubmitting) return;
-
-      const nickname = document.getElementById('nickname').value.trim();
-      const number = document.getElementById('number').value.trim();
-      if (!nickname || !number) {
-        showStatus(registrationStatus, "Please fill in all fields", "error");
-        if (!nickname) document.getElementById('nickname').classList.add('error-field');
-        if (!number) document.getElementById('number').classList.add('error-field');
-        return;
-      }
-
-      document.getElementById('nickname').classList.remove('error-field');
-      document.getElementById('number').classList.remove('error-field');
-
-      isSubmitting = true;
-      disableForm(registrationForm, true);
-      showStatus(registrationStatus, "Submitting...");
-
-      try {
-        const result = await sendRequest("/.netlify/functions/submit-registration", { nickname, number });
-        localStorage.setItem('registrationId', result.id);
-        localStorage.setItem('userNickname', nickname);
-        showStatus(registrationStatus, "Good luck", "success");
-
-        setTimeout(() => {
-          registrationSection.style.opacity = '0';
-          registrationSection.style.transform = 'translateY(-20px)';
-          setTimeout(() => {
-            registrationSection.style.display = 'none';
-            questionnaireSection.style.display = 'block';
-            void questionnaireSection.offsetWidth;
-            questionnaireSection.style.opacity = '1';
-            questionnaireSection.style.transform = 'translateY(0)';
-            startTimer(600); // 10 minutes
-          }, 300);
-        }, 1000);
-      } catch (err) {
-        console.error(err);
-        showStatus(registrationStatus, err.message || "Error submitting form", "error");
-        disableForm(registrationForm, false);
-      } finally { isSubmitting = false; }
-    });
   }
 
   // Questionnaire submission
@@ -295,17 +218,16 @@ function gatherAnswers() {
       showStatus(questionnaireStatus, "Submitting...");
 
       try {
-        const registrationId = localStorage.getItem('registrationId');
-        if (!registrationId) throw new Error("Registration missing. Please restart.");
+        const userId = localStorage.getItem('userId');
+        if (!userId) throw new Error("User missing. Please restart.");
 
         const { answers, answersList } = gatherAnswers();
         const score = calculateScore(answers);
 
-        await sendRequest("/.netlify/functions/submit-questionnaire", {
-          registrationId,
-          answers: answersList,
-          score
-        });
+        // Save to DB (mock)
+        currentUser.submitted = true;
+        currentUser.answers = answersList;
+        currentUser.score = score;
 
         await showCompletion(score, false);
         clearInterval(countdownInterval);
@@ -347,7 +269,7 @@ function gatherAnswers() {
       style.textContent = `
         .error-field { border-color: #dc3545 !important; background-color: #fff8f8 !important; }
         .error-field:focus { box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25) !important; }
-        #questionnaire-section, #registration-section, .completion-container {
+        #questionnaire-section, #login-section, .completion-container {
           transition: opacity 0.3s ease-out, transform 0.3s ease-out;
         }
         .matrix-timer {
