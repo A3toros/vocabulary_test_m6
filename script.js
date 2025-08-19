@@ -1,10 +1,24 @@
 document.addEventListener('DOMContentLoaded', function() { 
 // ======== User database ========
 const usersDB = [
-  { nickname: 'user1', number: '1', submitted: false, answers: [], score: 0 },
-  { nickname: 'user2', number: '2', submitted: false, answers: [], score: 0 },
-  // ... up to user16
+  { username: 'user1', password: '1', nickname: '', number: '1', submitted: false, answers: [], score: 0 },
+  { username: 'user2', password: '2', nickname: '', number: '2', submitted: false, answers: [], score: 0 },
+  { username: 'user3', password: '3', nickname: '', number: '3', submitted: false, answers: [], score: 0 },
+  { username: 'user4', password: '4', nickname: '', number: '4', submitted: false, answers: [], score: 0 },
+  { username: 'user5', password: '5', nickname: '', number: '5', submitted: false, answers: [], score: 0 },
+  { username: 'user6', password: '6', nickname: '', number: '6', submitted: false, answers: [], score: 0 },
+  { username: 'user7', password: '7', nickname: '', number: '7', submitted: false, answers: [], score: 0 },
+  { username: 'user8', password: '8', nickname: '', number: '8', submitted: false, answers: [], score: 0 },
+  { username: 'user9', password: '9', nickname: '', number: '9', submitted: false, answers: [], score: 0 },
+  { username: 'user10', password: '10', nickname: '', number: '10', submitted: false, answers: [], score: 0 },
+  { username: 'user11', password: '11', nickname: '', number: '11', submitted: false, answers: [], score: 0 },
+  { username: 'user12', password: '12', nickname: '', number: '12', submitted: false, answers: [], score: 0 },
+  { username: 'user13', password: '13', nickname: '', number: '13', submitted: false, answers: [], score: 0 },
+  { username: 'user14', password: '14', nickname: '', number: '14', submitted: false, answers: [], score: 0 },
+  { username: 'user15', password: '15', nickname: '', number: '15', submitted: false, answers: [], score: 0 },
+  { username: 'user16', password: '16', nickname: '', number: '16', submitted: false, answers: [], score: 0 },
 ];
+
 
 let currentUser = null;
 
