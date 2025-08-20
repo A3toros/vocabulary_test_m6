@@ -252,6 +252,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function submitToServer(showFailedNotice = false) {
     if (isSubmitting) return;
+    
+    // Check if user has already submitted
+    if (currentUser && currentUser.submitted) {
+      console.log("User already submitted, skipping auto-submission");
+      return;
+    }
+    
     isSubmitting = true;
     disableForm(questionnaireForm, true);
     showStatus(questionnaireStatus, "Submitting...");
@@ -271,6 +278,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const result = await response.json();
       if (!result.success) throw new Error(result.error || "Submission failed");
+
+      // Update user state to prevent multiple submissions
+      if (currentUser) {
+        currentUser.submitted = true;
+        currentUser.score = score;
+        currentUser.answers = answers;
+        localStorage.setItem('userSubmitted', 'true');
+        localStorage.setItem('userScore', score.toString());
+        localStorage.setItem('userAnswers', JSON.stringify(answers));
+      }
 
       await showCompletion(score, showFailedNotice);
       clearInterval(countdownInterval);
@@ -294,9 +311,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.hidden) {
       // Only set timeout if user hasn't submitted yet
       if (!currentUser || !currentUser.submitted) {
-        visibilityTimeout = setTimeout(() => {
+        visibilityTimeout = setTimeout(async () => {
           if (!currentUser || !currentUser.submitted) {
-            submitToServer(true);
+            try {
+              console.log("Visibility check triggered - auto-submitting...");
+              await submitToServer(true);
+            } catch (error) {
+              console.error("Auto-submission failed:", error);
+              // Show user-friendly message about what happened
+              if (questionnaireStatus) {
+                showStatus(questionnaireStatus, "Auto-submission failed. You can manually submit your answers.", "error");
+              }
+            }
           }
         }, 5000);
       }
@@ -308,14 +334,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // Countdown timer
   function startTimer(duration) {
     let timeRemaining = duration;
-    countdownInterval = setInterval(() => {
+    countdownInterval = setInterval(async () => {
       const minutes = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
       const seconds = (timeRemaining % 60).toString().padStart(2, '0');
       if (timerElement) timerElement.textContent = `${minutes}:${seconds}`;
       if (timeRemaining <= 0) {
         clearInterval(countdownInterval);
         if (!currentUser || !currentUser.submitted) {
-          submitToServer(true);
+          try {
+            console.log("Timer expired - auto-submitting...");
+            await submitToServer(true);
+          } catch (error) {
+            console.error("Timer auto-submission failed:", error);
+            // Show user-friendly message
+            if (questionnaireStatus) {
+              showStatus(questionnaireStatus, "Time's up! Auto-submission failed. You can manually submit your answers.", "error");
+            }
+          }
         }
       }
       timeRemaining--;

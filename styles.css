@@ -498,25 +498,34 @@ textarea:focus {
 
 /* Add logout button styles */
 .logout-btn {
-  position: absolute;
+  position: fixed;
   top: 20px;
   right: 20px;
+  width: 10vw;
+  height: 10vh;
   background-color: #dc3545;
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 1.2rem;
+  font-weight: bold;
   transition: background-color 0.3s ease;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .logout-btn:hover {
   background-color: #c82333;
+  transform: scale(1.05);
 }
 
 .logout-btn:active {
   background-color: #bd2130;
+  transform: scale(0.95);
 }
 
 /* Make questionnaire section relative for absolute positioning of logout button */
