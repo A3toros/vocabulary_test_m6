@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginStatus = document.getElementById('login-status');
   const loginSection = document.getElementById('login-section');
   const questionnaireSection = document.getElementById('questionnaire-section');
+  // Retrieve the token from local storage
+  const token = localStorage.getItem('token');
 
   loginForm.addEventListener('submit', async e => {
     e.preventDefault();
@@ -35,6 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
       currentUser = result.user;
       localStorage.setItem('userId', currentUser.id);
       localStorage.setItem('userNickname', currentUser.nickname);
+      localStorage.setItem('token', token);
+      // Store the results in local storage
+      localStorage.setItem('results', JSON.stringify(results));
 
       loginSection.style.display = 'none';
       questionnaireSection.style.display = 'block';
@@ -194,11 +199,11 @@ document.addEventListener('DOMContentLoaded', () => {
       await showCompletion(score, showFailedNotice);
       clearInterval(countdownInterval);
     } catch (err) {
-      console.error(err);
-      showStatus(questionnaireStatus, err.message || "Submission failed", "error");
-      disableForm(questionnaireForm, false);
-      isSubmitting = false;
-    }
+        console.error(err);
+        showStatus(questionnaireStatus, err.message || "Submission failed", "error");
+        disableForm(questionnaireForm, false);
+        isSubmitting = false; // Reset the isSubmitting flag
+      }
   }
 
   if (questionnaireForm) {
