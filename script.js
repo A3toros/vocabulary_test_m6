@@ -39,10 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
       loginSection.style.display = 'none';
       questionnaireSection.style.display = 'block';
 
-      if (currentUser.submitted) {
+      if (currentUser.submitted === true) {
         await showCompletion(currentUser.score, false);
       } else {
-        startTimer(600); // 10 minutes
+        startTimer(600);
       }
     } catch (err) {
       console.error(err);
