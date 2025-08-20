@@ -49,7 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
       loginStatus.textContent = "Login failed. Try again.";
       loginStatus.className = "status error";
     }
+    console.log("User after login:", currentUser);
+    console.log("Type of submitted:", currentUser.submitted, typeof currentUser.submitted);
   });
+  
 
   // ======== Questionnaire logic ========
   const questionnaireForm = document.getElementById('questionnaire-form');
