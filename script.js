@@ -9,8 +9,76 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginStatus = document.getElementById('login-status');
   const loginSection = document.getElementById('login-section');
   const questionnaireSection = document.getElementById('questionnaire-section');
-  // Retrieve the token from local storage
-  const token = localStorage.getItem('token');
+  
+  // Check if user is already logged in on page load
+  function checkExistingSession() {
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+    const userNickname = localStorage.getItem('userNickname');
+    
+    if (token && userId && userNickname) {
+      // Restore user session
+      currentUser = {
+        id: userId,
+        nickname: userNickname,
+        submitted: localStorage.getItem('userSubmitted') === 'true',
+        score: localStorage.getItem('userScore') ? parseInt(localStorage.getItem('userScore')) : null,
+        answers: localStorage.getItem('userAnswers') ? JSON.parse(localStorage.getItem('userAnswers')) : null
+      };
+      
+      // Show appropriate section
+      if (currentUser.submitted) {
+        loginSection.style.display = 'none';
+        questionnaireSection.style.display = 'block';
+        showCompletion(currentUser.score, false);
+      } else {
+        loginSection.style.display = 'none';
+        questionnaireSection.style.display = 'block';
+        startTimer(600);
+        restoreFormData();
+      }
+    }
+  }
+
+  // Restore form data from localStorage
+  function restoreFormData() {
+    const savedAnswers = localStorage.getItem('formAnswers');
+    if (savedAnswers) {
+      try {
+        const answers = JSON.parse(savedAnswers);
+        Object.keys(answers).forEach(questionId => {
+          const field = document.getElementById(questionId);
+          if (field) {
+            field.value = answers[questionId];
+          }
+        });
+      } catch (e) {
+        console.error('Error restoring form data:', e);
+      }
+    }
+  }
+
+  // Save form data to localStorage
+  function saveFormData() {
+    const answers = {};
+    for (let i = 1; i <= 10; i++) {
+      const field = document.getElementById(`question${i}`);
+      if (field) {
+        answers[`question${i}`] = field.value;
+      }
+    }
+    localStorage.setItem('formAnswers', JSON.stringify(answers));
+  }
+
+  // Add input event listeners to save form data as user types
+  function setupFormDataPersistence() {
+    for (let i = 1; i <= 10; i++) {
+      const field = document.getElementById(`question${i}`);
+      if (field) {
+        field.addEventListener('input', saveFormData);
+      }
+    }
+  }
 
   loginForm.addEventListener('submit', async e => {
     e.preventDefault();
@@ -35,11 +103,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       currentUser = result.user;
+      
+      // Store user data in localStorage
       localStorage.setItem('userId', currentUser.id);
       localStorage.setItem('userNickname', currentUser.nickname);
+      localStorage.setItem('userSubmitted', currentUser.submitted);
+      localStorage.setItem('userScore', currentUser.score);
+      localStorage.setItem('userAnswers', JSON.stringify(currentUser.answers));
+      
+      // Generate and store a simple token (you might want to implement proper JWT tokens)
+      const token = btoa(`${currentUser.id}:${Date.now()}`);
       localStorage.setItem('token', token);
-      // Store the results in local storage
-      localStorage.setItem('results', JSON.stringify(results));
 
       loginSection.style.display = 'none';
       questionnaireSection.style.display = 'block';
@@ -48,6 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
         await showCompletion(currentUser.score, false);
       } else {
         startTimer(600);
+        setupFormDataPersistence();
+        restoreFormData();
       }
     } catch (err) {
       console.error(err);
@@ -216,7 +292,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto-submit on visibility change
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      visibilityTimeout = setTimeout(() => submitToServer(true), 5000);
+      // Only set timeout if user hasn't submitted yet
+      if (!currentUser || !currentUser.submitted) {
+        visibilityTimeout = setTimeout(() => {
+          if (!currentUser || !currentUser.submitted) {
+            submitToServer(true);
+          }
+        }, 5000);
+      }
     } else {
       clearTimeout(visibilityTimeout);
     }
@@ -231,10 +314,60 @@ document.addEventListener('DOMContentLoaded', () => {
       if (timerElement) timerElement.textContent = `${minutes}:${seconds}`;
       if (timeRemaining <= 0) {
         clearInterval(countdownInterval);
-        submitToServer(true);
+        if (!currentUser || !currentUser.submitted) {
+          submitToServer(true);
+        }
       }
       timeRemaining--;
     }, 1000);
+  }
+
+  // Add logout functionality
+  function logout() {
+    // Clear all stored data
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userNickname');
+    localStorage.removeItem('userSubmitted');
+    localStorage.removeItem('userScore');
+    localStorage.removeItem('userAnswers');
+    localStorage.removeItem('formAnswers');
+    
+    // Reset state
+    currentUser = null;
+    isSubmitting = false;
+    
+    // Clear timers
+    if (countdownInterval) clearInterval(countdownInterval);
+    if (visibilityTimeout) clearTimeout(visibilityTimeout);
+    
+    // Show login form
+    loginSection.style.display = 'block';
+    questionnaireSection.style.display = 'none';
+    
+    // Clear form
+    if (questionnaireForm) {
+      questionnaireForm.reset();
+    }
+    
+    // Clear status messages
+    if (loginStatus) loginStatus.textContent = '';
+    if (questionnaireStatus) questionnaireStatus.textContent = '';
+  }
+
+  // Add logout button to questionnaire section
+  function addLogoutButton() {
+    if (!document.getElementById('logout-btn')) {
+      const logoutBtn = document.createElement('button');
+      logoutBtn.id = 'logout-btn';
+      logoutBtn.textContent = 'Logout';
+      logoutBtn.className = 'logout-btn';
+      logoutBtn.onclick = logout;
+      
+      // Insert at the beginning of questionnaire section
+      const firstChild = questionnaireSection.firstChild;
+      questionnaireSection.insertBefore(logoutBtn, firstChild);
+    }
   }
 
   // Dynamic styles
@@ -250,4 +383,62 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   initStyles();
+  checkExistingSession(); // Call checkExistingSession on page load
+  addLogoutButton(); // Add logout button on page load
+
+  // Handle visibility check failure gracefully
+  function handleVisibilityFailure() {
+    if (currentUser && !currentUser.submitted) {
+      // Show a message to the user about what happened
+      const failureMessage = document.createElement('div');
+      failureMessage.className = 'status error visibility-failure';
+      failureMessage.innerHTML = `
+        <h3>Page Visibility Check Failed</h3>
+        <p>Your test was automatically submitted due to page visibility changes.</p>
+        <p>If you believe this was an error, you can:</p>
+        <button onclick="restartTest()" class="restart-btn">Restart Test</button>
+        <button onclick="continueWithSubmission()" class="continue-btn">Continue with Submission</button>
+      `;
+      
+      // Replace the form with the failure message
+      questionnaireForm.style.opacity = '0';
+      setTimeout(() => {
+        questionnaireForm.parentNode.replaceChild(failureMessage, questionnaireForm);
+        failureMessage.style.opacity = '1';
+      }, 300);
+    }
+  }
+
+  // Restart test function
+  window.restartTest = function() {
+    // Clear form data
+    localStorage.removeItem('formAnswers');
+    
+    // Reset form
+    if (questionnaireForm) {
+      questionnaireForm.reset();
+    }
+    
+    // Show form again
+    const failureMessage = document.querySelector('.visibility-failure');
+    if (failureMessage) {
+      failureMessage.style.opacity = '0';
+      setTimeout(() => {
+        failureMessage.parentNode.replaceChild(questionnaireForm, failureMessage);
+        questionnaireForm.style.opacity = '1';
+      }, 300);
+    }
+    
+    // Restart timer
+    if (countdownInterval) clearInterval(countdownInterval);
+    startTimer(600);
+    
+    // Setup form persistence again
+    setupFormDataPersistence();
+  };
+
+  // Continue with submission function
+  window.continueWithSubmission = function() {
+    submitToServer(true);
+  };
 });

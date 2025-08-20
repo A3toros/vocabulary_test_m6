@@ -1,12 +1,6 @@
-const { Pool } = require("pg");
+import { Client } from "pg";
 
-// Create connection to Neon database
-const pool = new Pool({
-  connectionString: process.env.NEON_DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
-
-exports.handler = async function(event, context) {
+export async function handler(event) {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
   }
@@ -23,8 +17,13 @@ exports.handler = async function(event, context) {
     return { statusCode: 400, body: JSON.stringify({ error: "User ID and answers required" }) };
   }
 
-  const client = await pool.connect();
+  const client = new Client({
+    connectionString: process.env.NEON_DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+
   try {
+    await client.connect();
     await client.query('BEGIN');
 
     // Check if user exists and submission status
@@ -78,6 +77,6 @@ exports.handler = async function(event, context) {
     console.error("Database error:", error);
     return { statusCode: 500, body: JSON.stringify({ error: error.message || "Failed to save submission" }) };
   } finally {
-    client.release();
+    await client.end();
   }
-};
+}
